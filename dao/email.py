@@ -1,6 +1,6 @@
 from dao.base import DAOBase
 from config import MONGO_CLIENT, MONGODB_DB_NAME, MONGODB_EMAILS_SRC_COLLECTIONS
-from models.email import Email, EmailInDB, EmailGithubDataset, EmailGithubDatasetInDB
+from models.email import Email, EmailInDB, EmailGithubDataset, EmailGithubDatasetInDB, EmailGmail, EmailGmailInDB
 
 
 class DAOEmail(DAOBase):
@@ -19,3 +19,11 @@ class DAOEmailGitClass(DAOBase):
                          MONGODB_EMAILS_SRC_COLLECTIONS["email_class_git"],
                          EmailGithubDataset,
                          EmailGithubDatasetInDB)
+
+class DAOEmailGmail(DAOBase):
+    def __init__(self, collection_name: str):
+        super().__init__(MONGO_CLIENT,
+                         MONGODB_DB_NAME,
+                         collection_name,
+                         EmailGmail,
+                         EmailGmailInDB)

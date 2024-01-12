@@ -31,6 +31,19 @@ class EmailInDB(MongoDBModel, EmailBase):
 
 class EmailGithubDataset(EmailBase):
     inner_classification: GithubClassEnums
+class EmailPayload(BaseModel):
+    is_html: Optional[bool]
+    body: Optional[Union[str,List['EmailPayload']]]
+
+class EmailGmail(EmailBase):
+    is_html: Optional[bool] = False
+    from_name: Optional[str]
+    body: Optional[Union[str, List[EmailPayload]]]
+    email_labels: Optional[str]
+    detected_language: Optional[str]
+
+class EmailGmailInDB(MongoDBModel, EmailGmail):
+    pass
 
 class EmailGithubDatasetInDB(MongoDBModel, EmailGithubDataset):
     pass

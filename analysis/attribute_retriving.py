@@ -1,13 +1,22 @@
+import quopri
 import re
 import math
-from typing import Dict, List
+from typing import Dict, List, Union
+
+from bs4 import BeautifulSoup
 from textblob import TextBlob
 from nltk import pos_tag
 from nltk.tokenize import word_tokenize
 import stylo_metrix as sm
 from pandas import DataFrame
+import langid
 
 from models.stylometrix_metrics import StyloMetrixMetrics
+import html2text
+
+html2text_handler = html2text.HTML2Text()
+
+
 
 
 def average_word_length(text: str) -> float:
@@ -165,3 +174,31 @@ def calculate_burstiness(text: str, overall_counts: Dict[str, int]) -> float:
         burstiness += chi_squared
 
     return burstiness
+
+
+def extract_strings_from_html(html_text: str, ignore_links: bool = True) -> str:
+    """
+    Extract text strings from HTML.
+
+    Parameters:
+    - html_text (str): HTML text.
+
+    Returns:
+    - str with concatenated text strings.
+    """
+    html2text_handler.ignore_links = ignore_links
+    return html2text_handler.handle(html_text)
+
+
+def detect_language(text: str) -> str:
+    """
+    Detect the language of the given text.
+
+    Parameters:
+    - text (str): Input text.
+
+    Returns:
+    - str: Detected language or 'unknown'.
+    """
+    lang, _ = langid.classify(text.lower())
+    return lang
