@@ -38,9 +38,9 @@ class EmailPayload(BaseModel):
 class EmailGmail(EmailBase):
     is_html: Optional[bool] = False
     from_name: Optional[str]
-    body: Optional[Union[str, List[EmailPayload]]]
     email_labels: Optional[str]
     detected_language: Optional[str]
+    text_plain: Optional[str]
 
 class EmailGmailInDB(MongoDBModel, EmailGmail):
     pass
