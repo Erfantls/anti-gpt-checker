@@ -29,11 +29,21 @@ class Email(EmailBase):
 class EmailInDB(MongoDBModel, EmailBase):
     pass
 
-class EmailGithubDataset(EmailBase):
-    inner_classification: GithubClassEnums
-class EmailPayload(BaseModel):
-    is_html: Optional[bool]
-    body: Optional[Union[str,List['EmailPayload']]]
+class EmailGithub(EmailBase):
+    inner_classification: GithubClassEnums # calendar, personal, meetings
+
+
+class EmailGithubInDB(MongoDBModel, EmailGithub):
+    pass
+
+
+class EmailSpamAssassin(EmailBase):
+    text_plain: Optional[str]
+
+
+class EmailSpamAssassinInDB(MongoDBModel, EmailSpamAssassin):
+    pass
+
 
 class EmailGmail(EmailBase):
     is_html: Optional[bool] = False
@@ -45,5 +55,3 @@ class EmailGmail(EmailBase):
 class EmailGmailInDB(MongoDBModel, EmailGmail):
     pass
 
-class EmailGithubDatasetInDB(MongoDBModel, EmailGithubDataset):
-    pass

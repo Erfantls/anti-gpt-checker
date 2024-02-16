@@ -1,6 +1,9 @@
 from dao.base import DAOBase
-from config import MONGO_CLIENT, MONGODB_DB_NAME, MONGODB_EMAILS_SRC_COLLECTIONS
-from models.email import Email, EmailInDB, EmailGithubDataset, EmailGithubDatasetInDB, EmailGmail, EmailGmailInDB
+from config import MONGO_CLIENT, MONGODB_DB_NAME
+from models.email import Email, EmailInDB,\
+                         EmailGithub, EmailGithubInDB,\
+                         EmailGmail, EmailGmailInDB,\
+                         EmailSpamAssassin, EmailSpamAssassinInDB
 
 
 class DAOEmail(DAOBase):
@@ -12,13 +15,30 @@ class DAOEmail(DAOBase):
                          EmailInDB)
 
 
+class DAOEmailSpam(DAOBase):
+    def __init__(self):
+        super().__init__(MONGO_CLIENT,
+                         MONGODB_DB_NAME,
+                         'email_spam_dataset',
+                         Email,
+                         EmailInDB)
+
 class DAOEmailGitClass(DAOBase):
     def __init__(self):
         super().__init__(MONGO_CLIENT,
                          MONGODB_DB_NAME,
-                         MONGODB_EMAILS_SRC_COLLECTIONS["email_class_git"],
-                         EmailGithubDataset,
-                         EmailGithubDatasetInDB)
+                         'email_classification_github',
+                         EmailGithub,
+                         EmailGithubInDB)
+
+
+class DAOEmailSpamAssassin(DAOBase):
+    def __init__(self):
+        super().__init__(MONGO_CLIENT,
+                         MONGODB_DB_NAME,
+                         'email_spam_assassin_dataset',
+                         EmailSpamAssassin,
+                         EmailSpamAssassinInDB)
 
 class DAOEmailGmail(DAOBase):
     def __init__(self, collection_name: str):
@@ -27,3 +47,13 @@ class DAOEmailGmail(DAOBase):
                          collection_name,
                          EmailGmail,
                          EmailGmailInDB)
+
+
+AVAILABLE_EMAIL_DAOS = {
+    "spam": DAOEmailSpam(),
+    "class_git": DAOEmailGitClass(),
+    "spam_assassin": DAOEmailSpamAssassin(),
+    "gmail1": DAOEmailGmail('gmail1'),
+    "gmail2": DAOEmailGmail('gmail2'),
+    "gmail3": DAOEmailGmail('gmail3')
+}

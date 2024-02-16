@@ -11,6 +11,7 @@ from bson.objectid import ObjectId
 class DAOBase:
     client: MongoClient
     db: MongoDB
+    collection_name: str
     collection: MongoCollection
 
     base_model: Type[BaseModel]
@@ -20,6 +21,7 @@ class DAOBase:
                  model_in_db: Type[BaseModel]):
         self.client = client
         self.db = self.client[db_name]
+        self.collection_name = collection_name
         self.collection = self.db[collection_name]
         self.base_model = base_model
         self.model_in_db = model_in_db
