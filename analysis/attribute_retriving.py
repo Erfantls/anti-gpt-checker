@@ -10,6 +10,7 @@ from nltk.tokenize import word_tokenize
 import stylo_metrix as sm
 from pandas import DataFrame
 import langid
+from langdetect import detect, DetectorFactory, LangDetectException
 
 from models.stylometrix_metrics import StyloMetrixMetrics
 import html2text
@@ -200,5 +201,10 @@ def detect_language(text: str) -> str:
     Returns:
     - str: Detected language or 'unknown'.
     """
-    lang, _ = langid.classify(text.lower())
+    # lang, _ = langid.classify(text.lower())
+    DetectorFactory.seed = 0
+    try:
+        lang = detect(text)
+    except LangDetectException:
+        lang = 'unknown'
     return lang
