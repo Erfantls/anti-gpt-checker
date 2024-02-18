@@ -1,4 +1,6 @@
 import os
+
+import spacy
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
@@ -14,3 +16,15 @@ MONGODB_EMAILS_SRC_COLLECTIONS = {
 }
 
 MONGO_CLIENT = MongoClient(MONGODB_URI, MONGODB_PORT)
+
+SPACY_POLISH_NLP_MODEL = None
+SPACY_ENGLISH_NLP_MODEL = None
+
+
+def init_spacy_polish_nlp_model() -> None:
+    global SPACY_POLISH_NLP_MODEL
+    SPACY_POLISH_NLP_MODEL = spacy.load("pl_core_news_lg")
+
+def init_spacy_english_nlp_model() -> None:
+    global SPACY_ENGLISH_NLP_MODEL
+    SPACY_ENGLISH_NLP_MODEL = spacy.load("en_core_web_trf")

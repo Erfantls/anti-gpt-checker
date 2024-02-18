@@ -22,6 +22,10 @@ class EmailBase(BaseModel):
     is_html: bool = False
     is_spam: Optional[bool]
     is_ai_generated: Optional[bool]
+    detected_language: Optional[str]
+    lemmatized_subject: Optional[str]
+    lematized_body: Optional[str]
+    text_plain: Optional[str]
 
 class Email(EmailBase):
     pass
@@ -38,8 +42,7 @@ class EmailGithubInDB(MongoDBModel, EmailGithub):
 
 
 class EmailSpamAssassin(EmailBase):
-    text_plain: Optional[str]
-
+    pass
 
 class EmailSpamAssassinInDB(MongoDBModel, EmailSpamAssassin):
     pass
@@ -49,8 +52,6 @@ class EmailGmail(EmailBase):
     is_html: Optional[bool] = False
     from_name: Optional[str]
     email_labels: Optional[str]
-    detected_language: Optional[str]
-    text_plain: Optional[str]
 
 class EmailGmailInDB(MongoDBModel, EmailGmail):
     pass

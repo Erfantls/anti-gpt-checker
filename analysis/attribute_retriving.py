@@ -4,13 +4,16 @@ import math
 from typing import Dict, List, Union
 
 from bs4 import BeautifulSoup
-from textblob import TextBlob
 from nltk import pos_tag
 from nltk.tokenize import word_tokenize
 import stylo_metrix as sm
 from pandas import DataFrame
+from collections import Counter
+from langdetect import detect as langdetect_detect, DetectorFactory, LangDetectException
 import langid
-from langdetect import detect, DetectorFactory, LangDetectException
+
+import pycld2 as cld2
+import cld3
 
 from models.stylometrix_metrics import StyloMetrixMetrics
 import html2text
@@ -204,7 +207,53 @@ def detect_language(text: str) -> str:
     # lang, _ = langid.classify(text.lower())
     DetectorFactory.seed = 0
     try:
-        lang = detect(text)
+        lang = langdetect_detect(text)
     except LangDetectException:
         lang = 'unknown'
     return lang
+
+
+def detect_language_by_voting(text):
+    # Ensure consistent results with langdetect
+    DetectorFactory.seed = 0
+
+    # Initialize a list to store detected languages
+    detected_languages = []
+
+    # langdetect
+    try:
+        detected_languages.append(langdetect_detect(text))
+    except LangDetectException:
+        pass
+
+    # langid
+    try:
+        langid_result = langid.classify(text)
+        detected_languages.append(langid_result[0])
+    except Exception:
+        pass
+
+    # cld2
+    try:
+        isReliable, _, details = cld2.detect(text)
+        if isReliable:
+            detected_languages.append(details[0][1])
+    except Exception:
+        pass
+
+    # cld3
+    try:
+        cld3_result = cld3.get_language(text)
+        if cld3_result is not None:
+            detected_languages.append(cld3_result.language)
+    except Exception:
+        pass
+
+    if len(detected_languages) == 0:
+        return 'unknown'
+
+    # Perform voting
+    language_counts = Counter(detected_languages)
+    most_common_language, _ = language_counts.most_common(1)[0]
+
+    return most_common_language
