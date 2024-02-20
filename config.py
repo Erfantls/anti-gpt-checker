@@ -20,6 +20,9 @@ MONGO_CLIENT = MongoClient(MONGODB_URI, MONGODB_PORT)
 SPACY_POLISH_NLP_MODEL = None
 SPACY_ENGLISH_NLP_MODEL = None
 
+SPACY_POLISH_NLP_MODEL_SMALL = None
+SPACY_ENGLISH_NLP_MODEL_SMALL = None
+
 
 def init_spacy_polish_nlp_model() -> None:
     global SPACY_POLISH_NLP_MODEL
@@ -28,3 +31,12 @@ def init_spacy_polish_nlp_model() -> None:
 def init_spacy_english_nlp_model() -> None:
     global SPACY_ENGLISH_NLP_MODEL
     SPACY_ENGLISH_NLP_MODEL = spacy.load("en_core_web_trf")
+
+
+def init_spacy_polish_nlp_model_small() -> None:
+    global SPACY_POLISH_NLP_MODEL_SMALL
+    SPACY_POLISH_NLP_MODEL_SMALL = spacy.load("pl_core_news_sm")
+
+def init_spacy_english_nlp_model_small() -> None:
+    global SPACY_ENGLISH_NLP_MODEL_SMALL
+    SPACY_ENGLISH_NLP_MODEL_SMALL = spacy.load("en_core_web_sm")

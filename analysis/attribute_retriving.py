@@ -14,6 +14,7 @@ import langid
 
 import pycld2 as cld2
 import cld3
+from textblob import TextBlob
 
 from models.stylometrix_metrics import StyloMetrixMetrics
 import html2text
@@ -92,7 +93,7 @@ def sentiment_score_eng(text: str) -> float:
     return blob.sentiment.polarity
 
 
-def count_punctuation(text: str) -> int:
+def count_punctuation(text: str) -> float:
     """
     Count the occurrences of punctuation marks in the given text.
 
@@ -100,10 +101,12 @@ def count_punctuation(text: str) -> int:
     - text (str): Input text.
 
     Returns:
-    - int: Count of punctuation marks.
+    - float: Count of punctuation marks per length of text
     """
     punctuation_count = sum([1 for char in text if char in '.,;:!?'])
-    return punctuation_count
+    if len(text) == 0:
+        return 0
+    return punctuation_count/len(text)
 
 
 def stylo_metrix_analysis(texts: List[str]) -> List[StyloMetrixMetrics]:
