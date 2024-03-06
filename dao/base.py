@@ -30,7 +30,9 @@ class DAOBase:
         result: MongoCursor = self.collection.find({})
         return [self.model_in_db(**doc) for doc in list(result)]
 
-    def find_by_id(self, id: ObjectId) -> BaseModel:
+    def find_by_id(self, id: ObjectId | str) -> BaseModel:
+        if not isinstance(id, ObjectId):
+            id = ObjectId(id)
         result: dict = self.collection.find_one({"_id": id})
         return self.model_in_db(**result)
 
@@ -64,3 +66,9 @@ class DAOBase:
 
     def update_one(self, query: dict, values: dict) -> int:
         return self.collection.update_one(query, values).matched_count
+
+    def delete_one(self, query: dict) -> int:
+        return self.collection.delete_one(query).deleted_count
+
+    def delete_many(self, query: dict) -> int:
+        return self.collection.delete_many(query).deleted_count

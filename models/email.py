@@ -4,7 +4,7 @@ from typing import Union, List, Optional
 from pydantic import BaseModel
 from datetime import datetime
 
-from models.base_mongo_model import MongoDBModel
+from models.base_mongo_model import MongoDBModel, MongoObjectId
 
 
 class GithubClassEnums(str, Enum):
@@ -24,7 +24,7 @@ class EmailBase(BaseModel):
     is_ai_generated: Optional[bool]
     detected_language: Optional[str]
     lemmatized_subject: Optional[str]
-    lematized_body: Optional[str]
+    lemmatized_body: Optional[str]
     text_plain: Optional[str]
 
 class Email(EmailBase):
@@ -55,4 +55,37 @@ class EmailGmail(EmailBase):
 
 class EmailGmailInDB(MongoDBModel, EmailGmail):
     pass
+
+
+class EmailGenerated(BaseModel):
+    og_db_name: str
+    og_doc_id: MongoObjectId
+    subject: Optional[str]
+    text_plain: Optional[str]
+    language: Optional[str]
+    is_ai_generated: Optional[bool] = True
+
+
+class EmailGeneratedInDB(MongoDBModel, EmailGenerated):
+    pass
+
+
+class EmailTone(str, Enum):
+    FORMAL = "formal"
+    NEUTRAL = "neutral"
+    INFORMAL = "informal"
+
+class EmailInfoForGPT(BaseModel):
+    summary: str
+    length: int
+    tone: str
+
+    def to_prompt(self, subject: str, lang_code: str) -> str:
+        match lang_code:
+            case 'en':
+                return f"subject: {subject}\nsummary: {self.summary}\ntone: {self.tone}\nlength: {self.length} words"
+            case 'pl':
+                return f"temat: {subject}\npodsumowanie: {self.summary}\nton: {self.tone}\ndługość: {self.length} słów"
+            case _:
+                raise ValueError(f"Language {lang_code} is not supported")
 

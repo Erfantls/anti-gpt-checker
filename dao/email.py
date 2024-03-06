@@ -1,9 +1,9 @@
 from dao.base import DAOBase
 from config import MONGO_CLIENT, MONGODB_DB_NAME
-from models.email import Email, EmailInDB,\
-                         EmailGithub, EmailGithubInDB,\
-                         EmailGmail, EmailGmailInDB,\
-                         EmailSpamAssassin, EmailSpamAssassinInDB
+from models.email import Email, EmailInDB, \
+    EmailGithub, EmailGithubInDB, \
+    EmailGmail, EmailGmailInDB, \
+    EmailSpamAssassin, EmailSpamAssassinInDB, EmailGenerated, EmailGeneratedInDB
 
 
 class DAOEmail(DAOBase):
@@ -57,3 +57,11 @@ AVAILABLE_EMAIL_DAOS = {
     "gmail2": DAOEmailGmail('gmail2'),
     "gmail3": DAOEmailGmail('gmail3')
 }
+
+class DAOEmailGenerated(DAOBase):
+    def __init__(self):
+        super().__init__(MONGO_CLIENT,
+                         MONGODB_DB_NAME,
+                         'email_generated_dataset',
+                         EmailGenerated,
+                         EmailGeneratedInDB)
