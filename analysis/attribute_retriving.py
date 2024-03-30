@@ -1,12 +1,15 @@
 import quopri
 import re
 import math
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional, Tuple
 
+import nltk
+import numpy as np
 from bs4 import BeautifulSoup
 from nltk import pos_tag
 from nltk.tokenize import word_tokenize
 import stylo_metrix as sm
+from numpy import std, var, mean
 from pandas import DataFrame
 from collections import Counter
 from langdetect import detect as langdetect_detect, DetectorFactory, LangDetectException
@@ -15,6 +18,10 @@ import langid
 import pycld2 as cld2
 import cld3
 from textblob import TextBlob
+
+import torch
+
+from analysis.nlp_transformations import replace_links_with_text, remove_stopwords_and_punctuation
 
 from models.stylometrix_metrics import StyloMetrixMetrics
 import html2text
@@ -123,7 +130,7 @@ def stylo_metrix_output_to_model(metrics_df: DataFrame) -> List[StyloMetrixMetri
 
     return model_instances
 
-def calculate_perplexity(text: str, language_word_probabilities: Dict[str, float]) -> float:
+def calculate_perplexity_old(text: str, language_word_probabilities: Dict[str, float]) -> float:
     """
     Calculate perplexity for a given text based on a language model.
 
@@ -149,36 +156,126 @@ def calculate_perplexity(text: str, language_word_probabilities: Dict[str, float
 
     return perplexity
 
-def calculate_burstiness(text: str, overall_counts: Dict[str, int]) -> float:
+
+def calculate_perplexity(text: str, language_code: str, per_token: Optional[str] = "word", return_base_ppl: bool = False) -> Optional[float]:
+    text = replace_links_with_text(text)
+    if per_token not in ["word", "char"]:
+        raise ValueError("per_token must be either 'word' or 'char'")
+
+    match per_token:
+        case "word":
+            denominator = len(text.split())
+        case "char":
+            denominator = len(text)
+        case _:
+            raise ValueError("per_token must be either 'word' or 'char'")
+
+    if language_code == "pl":
+        from config import PERPLEXITY_POLISH_TOKENIZER, PERPLEXITY_POLISH_MODEL
+        tokenizer = PERPLEXITY_POLISH_TOKENIZER
+        model = PERPLEXITY_POLISH_MODEL
+    elif language_code == "en":
+        from config import PERPLEXITY_ENGLISH_TOKENIZER, PERPLEXITY_ENGLISH_MODEL
+        tokenizer = PERPLEXITY_ENGLISH_TOKENIZER
+        model = PERPLEXITY_ENGLISH_MODEL
+    else:
+        raise ValueError("Language code must be either 'pl' or 'en'")
+
+    encodings = tokenizer(text, return_tensors="pt")
+
+    max_length = model.config.n_positions
+    stride = 512
+    seq_len = encodings.input_ids.size(1)
+
+    nlls = []
+    prev_end_loc = 0
+    for begin_loc in range(0, seq_len, stride):
+        end_loc = min(begin_loc + max_length, seq_len)
+        trg_len = end_loc - prev_end_loc  # may be different from stride on last loop
+        input_ids = encodings.input_ids[:, begin_loc:end_loc].to('cuda' if torch.cuda.is_available() else 'cpu')
+        target_ids = input_ids.clone()
+        target_ids[:, :-trg_len] = -100
+
+        with torch.no_grad():
+            outputs = model(input_ids, labels=target_ids)
+
+            # loss is calculated using CrossEntropyLoss which averages over valid labels
+            # N.B. the model only calculates loss over trg_len - 1 labels, because it internally shifts the labels
+            # to the left by 1.
+            neg_log_likelihood = outputs.loss
+
+        nlls.append(neg_log_likelihood)
+
+        prev_end_loc = end_loc
+        if end_loc == seq_len:
+            break
+
+    if len(nlls) == 0:
+        return None
+
+    if return_base_ppl:
+        ppl = float((torch.stack(nlls).sum()).float())
+        return ppl
+
+    ppl = float(torch.exp((torch.stack(nlls).sum())/denominator).float())
+    return ppl
+
+
+
+#https://github.com/AIAnytime/GPT-Shield-AI-Plagiarism-Detector
+
+def calculate_burstiness(lemmatize_text: str, language_code: str) -> float:
+    tokens = remove_stopwords_and_punctuation(lemmatize_text, language_code)
+
+    word_freq = nltk.FreqDist(tokens)
+    avg_freq = float(sum(word_freq.values()) / len(word_freq))
+    variance = float(sum((freq - avg_freq) ** 2 for freq in word_freq.values()) / len(word_freq))
+
+    burstiness_score = variance / (avg_freq ** 2)
+    return burstiness_score
+
+#https://github.com/thinkst/zippy/blob/main/burstiness.py
+def calc_distribution_sentence_length(sentences : List[str]) -> Tuple[Tuple[float, float, float], Tuple[float, float, float]]:
+    '''
+    Given a list of sentences returns the standard deviation, variance and average of sentence length in terms of both chars and words
+    '''
+    for sentence in sentences:
+        chars = len(sentence)
+        if chars < 1:
+            continue
+        words = len(sentence.split(' '))
+        lens.append((chars, words))
+    char_data = [x[0] for x in lens]
+    word_data = [x[1] for x in lens]
+    char_length_distribution: Tuple[float, float, float] = (std(char_data), var(char_data), mean(char_data))
+    word_length_distribution: Tuple[float, float, float] = (std(word_data), var(word_data), mean(word_data))
+    return char_length_distribution, word_length_distribution
+
+
+def calculate_burstiness_old(text: str, window_size: int, language_word_probabilities: Dict[str, float]) -> float:
     """
-    Calculate burstiness for each word based on the chi-squared statistic.
+    Calculate burstiness of the text based on the standard deviation of perplexity over windows.
 
     Parameters:
-    - text (str): Text to analyze.
-    - overall_counts (Dict[str, int]): Overall word frequencies.
+    - text (str): Input text.
+    - window_size (int): Size of the window for calculating perplexity.
+    - language_model (LanguageModel): Language model object.
 
     Returns:
     - float: Burstiness value.
     """
-    window_counts = {}  # Initialize window counts
+    perplexities = []
 
-    words = text.split()
-    for word in words:
-        window_counts[word] = window_counts.get(word, 0) + 1
+    # Split the text into windows
+    windows = [text[i:i+window_size] for i in range(0, len(text), window_size)]
 
-    burstiness = 0.0
+    # Calculate perplexity for each window
+    for window in windows:
+        perplexity = calculate_perplexity(window, language_word_probabilities)
+        perplexities.append(perplexity)
 
-    for word, overall_freq in overall_counts.items():
-        window_freq = window_counts.get(word, 0)
-
-        # Calculate expected frequency (assuming uniform distribution)
-        expected_freq = overall_freq / len(overall_counts)
-
-        # Calculate chi-squared statistic
-        chi_squared = (window_freq - expected_freq) ** 2 / expected_freq
-
-        # Update burstiness
-        burstiness += chi_squared
+    # Calculate standard deviation of perplexity
+    burstiness = np.std(perplexities)
 
     return burstiness
 

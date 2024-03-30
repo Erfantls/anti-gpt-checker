@@ -1,6 +1,11 @@
+import string
 from typing import Tuple, List
 
 import re
+
+import nltk
+from nltk.corpus import stopwords
+
 
 def lemmatize_text(text: str, lang_code: str) -> Tuple[str, List[str]]:
     """
@@ -27,6 +32,25 @@ def lemmatize_text(text: str, lang_code: str) -> Tuple[str, List[str]]:
     lemma_text = " ".join(lemma_list)
     return lemma_text, lemma_list
 
+
+def remove_stopwords_and_punctuation(lemmatize_text: str, lang_code: str) -> List[str]:
+    """
+    Remove stopwords and punctuation from the text
+    :param lemmatize_text: lemmatize_text to be cleaned
+    :param lang_code: language of the text
+    :return: list of cleaned words
+    """
+    tokens = lemmatize_text.split()
+    if lang_code == "pl":
+        # read polish stopwords from file
+        with open("../static/polish.stopwords.txt", "r") as file:
+            stop_words = file.read().splitlines()
+    elif lang_code == "en":
+        stop_words = set(stopwords.words('english'))
+    else:
+        raise ValueError(f"Language {lang_code} is not supported")
+    tokens = [token for token in tokens if token not in stop_words and token not in string.punctuation]
+    return tokens
 
 
 def clean_text(input_text: str) -> str:
@@ -81,3 +105,21 @@ def separate_previous_conversation(text: str) -> Tuple[str, str]:
 def remove_footers(text: str) -> str:
     # Remove the footer
     return re.sub(r"\w{2}\., \d{1,2} \w{3} \d{4} o \d{2}:\d{2} .+ <.+@.+> napisał(a|\(a\)|):", "", text)
+
+
+def replace_links_with_text(text: str, replacement: str="link") -> str:
+    url_pattern = r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+|\bwww\.\S+\.\S+'
+    replaced_text = re.sub(url_pattern, replacement, text)
+    return replaced_text
+
+
+def split_into_sentences(text: str, lang_code: str) -> List[str]:
+    if lang_code == "pl":
+        sentence_tokenizer = nltk.data.load('tokenizers/punkt/polish.pickle')
+    elif lang_code == "en":
+        sentence_tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
+    else:
+        raise ValueError(f"Language {lang_code} is not supported")
+
+    sentences = sentence_tokenizer.tokenize(text)
+    return sentences

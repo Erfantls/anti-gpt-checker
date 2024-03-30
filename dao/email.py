@@ -58,6 +58,24 @@ AVAILABLE_EMAIL_DAOS = {
     "gmail3": DAOEmailGmail('gmail3')
 }
 
+
+class DAORealEmail:
+    def __init__(self):
+        self.available_daos = AVAILABLE_EMAIL_DAOS
+
+    def find_one(self, db_name: str, query: dict):
+        return self.available_daos[db_name].find_one_by_query(query)
+
+    def update_one(self, db_name: str, query: dict, values: dict):
+        return self.available_daos[db_name].update_one(query, values)
+
+    def find_one_unknown(self, query: dict):
+        for dao in self.available_daos.values():
+            result = dao.find_one_by_query(query)
+            if result:
+                return result
+        return None
+
 class DAOEmailGenerated(DAOBase):
     def __init__(self):
         super().__init__(MONGO_CLIENT,

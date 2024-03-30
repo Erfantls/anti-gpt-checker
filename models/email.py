@@ -64,6 +64,10 @@ class EmailGenerated(BaseModel):
     text_plain: Optional[str]
     language: Optional[str]
     is_ai_generated: Optional[bool] = True
+    placeholders_present: Optional[bool] = False
+    possible_advertisement: Optional[bool] = False
+    possibly_og_generated: Optional[bool] = False
+    lemmatized_body: Optional[str]
 
 
 class EmailGeneratedInDB(MongoDBModel, EmailGenerated):

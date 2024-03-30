@@ -33,6 +33,8 @@ def generate_email(subject:str, email_info_for_gpt: EmailInfoForGPT, language_co
     no_placeholders = _ensure_no_placeholders(response_txt)
     if not if_finished or not no_placeholders:
         response_txt = fix_generated_email(response_txt, messages, language_code, if_finished, no_placeholders, engine)
+        if isinstance(response_txt, tuple):
+            return (response_txt[0], response_txt[1].replace("===FINISHED===", "").strip())
 
     return response_txt.replace("===FINISHED===", "").strip()
 
@@ -61,9 +63,10 @@ def fix_generated_email(generated_email_text: str,
         print(response_txt)
         raise ValueError("The response is not finished")
     if not _ensure_no_placeholders(response_txt):
-        print("RESPONSE WITH PLACEHOLDERS")
-        print(response_txt)
-        raise ValueError("The response contains placeholders")
+        # print("RESPONSE WITH PLACEHOLDERS")
+        # print(response_txt)
+        # raise ValueError("The response contains placeholders")
+        return (False, response_txt)
     return response_txt
 
 
@@ -120,7 +123,7 @@ def get_basic_info_for_generation(email_text: str, language_code: str, engine: s
 
 
 
-def _request_to_openai_api(messages: List[dict], engine: str) -> Optional[str]:
+def _request_to_openai_api(messages: List[dict], engine:str = OPENAI_GPT3_5_MODEL_NAME) -> Optional[str]:
     try:
         response = client.chat.completions.create(
             model=engine,
