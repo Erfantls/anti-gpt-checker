@@ -239,6 +239,7 @@ def calc_distribution_sentence_length(sentences : List[str]) -> Tuple[Tuple[floa
     '''
     Given a list of sentences returns the standard deviation, variance and average of sentence length in terms of both chars and words
     '''
+    lens = []
     for sentence in sentences:
         chars = len(sentence)
         if chars < 1:

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import bs4
 
-from models.email import EmailGmail, EmailPayload
+from models.email import EmailGmail
 
 
 class GmailMboxMessage:
@@ -74,8 +74,8 @@ class GmailMboxMessage:
                 if not isinstance(inner_body, str):
                     inner_list = []
                     self._parse_multipart_body(inner_body, inner_list)
-                    collected_list.append(EmailPayload(is_html=None, body=inner_list))
+                    collected_list.append(EmailGmail(is_html=None, body=inner_list))
                 else:
-                    collected_list.append(EmailPayload(is_html=inner_is_html, body=inner_body))
+                    collected_list.append(EmailGmail(is_html=inner_is_html, body=inner_body))
         else:
-            collected_list.append(EmailPayload(is_html=None, body=None))
+            collected_list.append(EmailGmail(is_html=None, body=None))
