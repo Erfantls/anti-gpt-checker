@@ -3,7 +3,7 @@ from typing import Dict, Optional
 from pydantic import BaseModel
 
 from models.base_mongo_model import MongoObjectId, MongoDBModel
-from models.stylometrix_metrics import StyloMetrixMetrics
+from models.stylometrix_metrics import AllStyloMetrixFeaturesEN, AllStyloMetrixFeaturesPL
 class AttributeBase(BaseModel):
     referenced_db_name: str #V
     referenced_doc_id: MongoObjectId #V
@@ -29,7 +29,7 @@ class AttributeBase(BaseModel):
     number_of_sentences: Optional[int] #V
     number_of_words: Optional[int] #V
     number_of_characters: Optional[int] #V
-    stylometrix_metrics: Optional[StyloMetrixMetrics]
+    stylometrix_metrics: Optional[AllStyloMetrixFeaturesEN | AllStyloMetrixFeaturesPL]
     pos_eng_tags: Optional[Dict[str, int]]
     sentiment_eng: Optional[Dict[str, float]]
 

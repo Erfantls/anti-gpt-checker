@@ -23,7 +23,7 @@ import torch
 
 from analysis.nlp_transformations import replace_links_with_text, remove_stopwords_and_punctuation
 
-from models.stylometrix_metrics import StyloMetrixMetrics
+from models.stylometrix_metrics import AllStyloMetrixFeaturesEN, AllStyloMetrixFeaturesPL
 import html2text
 
 html2text_handler = html2text.HTML2Text()
@@ -116,16 +116,24 @@ def count_punctuation(text: str) -> float:
     return punctuation_count/len(text)
 
 
-def stylo_metrix_analysis(texts: List[str]) -> List[StyloMetrixMetrics]:
-    stylo = sm.StyloMetrix('pl')
+def stylo_metrix_analysis(texts: List[str], language_code: str) -> list[
+    AllStyloMetrixFeaturesPL | AllStyloMetrixFeaturesEN]:
+    stylo = sm.StyloMetrix(language_code)
     metrics = stylo.transform(texts)
-    converted_metrics = stylo_metrix_output_to_model(metrics)
+    converted_metrics = stylo_metrix_output_to_model(metrics, language_code)
     return converted_metrics
 
-def stylo_metrix_output_to_model(metrics_df: DataFrame) -> List[StyloMetrixMetrics]:
+def stylo_metrix_output_to_model(metrics_df: DataFrame, language_code: str) -> list[
+    AllStyloMetrixFeaturesPL | AllStyloMetrixFeaturesEN]:
     model_instances = []
     for index, row in metrics_df.iterrows():
-        model_instance = StyloMetrixMetrics(**row.to_dict())
+        if language_code == "pl":
+            model_instance = AllStyloMetrixFeaturesPL(**row.to_dict())
+        elif language_code == "en":
+            model_instance = AllStyloMetrixFeaturesEN(**row.to_dict())
+        else:
+            raise ValueError(f"Language {language_code} is not supported")
+
         model_instances.append(model_instance)
 
     return model_instances
