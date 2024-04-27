@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 from transformers import GPT2LMHeadModel, GPT2TokenizerFast, AutoTokenizer, AutoModelForCausalLM
 
+import language_tool_python
+
 load_dotenv()
 nltk.download('stopwords')
 nltk.download('punkt')
@@ -32,6 +34,18 @@ MAX_API_RETRIES = int(os.getenv("MAX_API_RETRIES"))
 
 SPACY_POLISH_NLP_MODEL = None
 SPACY_ENGLISH_NLP_MODEL = None
+
+LANGUAGE_TOOL_PL = None
+LANGUAGE_TOOL_EN = None
+
+def init_language_tool_pl() -> None:
+    global LANGUAGE_TOOL_PL
+    LANGUAGE_TOOL_PL = language_tool_python.LanguageTool('pl-PL')
+
+
+def init_language_tool_en() -> None:
+    global LANGUAGE_TOOL_EN
+    LANGUAGE_TOOL_EN = language_tool_python.LanguageTool('en-US')
 
 def init_spacy_polish_nlp_model() -> None:
     global SPACY_POLISH_NLP_MODEL

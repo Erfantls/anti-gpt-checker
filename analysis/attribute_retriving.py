@@ -1,4 +1,4 @@
-import quopri
+import sys, os
 import re
 import math
 from typing import Dict, List, Union, Optional, Tuple
@@ -27,8 +27,6 @@ from models.stylometrix_metrics import AllStyloMetrixFeaturesEN, AllStyloMetrixF
 import html2text
 
 html2text_handler = html2text.HTML2Text()
-
-
 
 
 def average_word_length(text: str) -> float:
@@ -113,7 +111,7 @@ def count_punctuation(text: str) -> float:
     punctuation_count = sum([1 for char in text if char in '.,;:!?'])
     if len(text) == 0:
         return 0
-    return punctuation_count/len(text)
+    return punctuation_count / len(text)
 
 
 def stylo_metrix_analysis(texts: List[str], language_code: str) -> list[
@@ -122,6 +120,7 @@ def stylo_metrix_analysis(texts: List[str], language_code: str) -> list[
     metrics = stylo.transform(texts)
     converted_metrics = stylo_metrix_output_to_model(metrics, language_code)
     return converted_metrics
+
 
 def stylo_metrix_output_to_model(metrics_df: DataFrame, language_code: str) -> list[
     AllStyloMetrixFeaturesPL | AllStyloMetrixFeaturesEN]:
@@ -137,6 +136,7 @@ def stylo_metrix_output_to_model(metrics_df: DataFrame, language_code: str) -> l
         model_instances.append(model_instance)
 
     return model_instances
+
 
 def calculate_perplexity_old(text: str, language_word_probabilities: Dict[str, float]) -> float:
     """
@@ -165,7 +165,8 @@ def calculate_perplexity_old(text: str, language_word_probabilities: Dict[str, f
     return perplexity
 
 
-def calculate_perplexity(text: str, language_code: str, per_token: Optional[str] = "word", return_base_ppl: bool = False) -> Optional[float]:
+def calculate_perplexity(text: str, language_code: str, per_token: Optional[str] = "word",
+                         return_base_ppl: bool = False) -> Optional[float]:
     text = replace_links_with_text(text)
     if per_token not in ["word", "char"]:
         raise ValueError("per_token must be either 'word' or 'char'")
@@ -225,12 +226,11 @@ def calculate_perplexity(text: str, language_code: str, per_token: Optional[str]
         ppl = float((torch.stack(nlls).sum()).float())
         return ppl
 
-    ppl = float(torch.exp((torch.stack(nlls).sum())/denominator).float())
+    ppl = float(torch.exp((torch.stack(nlls).sum()) / denominator).float())
     return ppl
 
 
-
-#https://github.com/AIAnytime/GPT-Shield-AI-Plagiarism-Detector
+# https://github.com/AIAnytime/GPT-Shield-AI-Plagiarism-Detector
 
 def calculate_burstiness(lemmatize_text: str, language_code: str) -> float:
     tokens = remove_stopwords_and_punctuation(lemmatize_text, language_code)
@@ -242,8 +242,10 @@ def calculate_burstiness(lemmatize_text: str, language_code: str) -> float:
     burstiness_score = variance / (avg_freq ** 2)
     return burstiness_score
 
-#https://github.com/thinkst/zippy/blob/main/burstiness.py
-def calc_distribution_sentence_length(sentences : List[str]) -> Tuple[Tuple[float, float, float], Tuple[float, float, float]]:
+
+# https://github.com/thinkst/zippy/blob/main/burstiness.py
+def calc_distribution_sentence_length(sentences: List[str]) -> Tuple[
+    Tuple[float, float, float], Tuple[float, float, float]]:
     '''
     Given a list of sentences returns the standard deviation, variance and average of sentence length in terms of both chars and words
     '''
@@ -276,7 +278,7 @@ def calculate_burstiness_old(text: str, window_size: int, language_word_probabil
     perplexities = []
 
     # Split the text into windows
-    windows = [text[i:i+window_size] for i in range(0, len(text), window_size)]
+    windows = [text[i:i + window_size] for i in range(0, len(text), window_size)]
 
     # Calculate perplexity for each window
     for window in windows:
@@ -366,3 +368,42 @@ def detect_language_by_voting(text):
     most_common_language, _ = language_counts.most_common(1)[0]
 
     return most_common_language
+
+
+def spelling_and_grammar_check(text: str, lang_code: str) -> Tuple[Dict[str, int], int]:
+    if lang_code == "pl":
+        from config import LANGUAGE_TOOL_PL
+        tool = LANGUAGE_TOOL_PL
+    elif lang_code == "en":
+        from config import LANGUAGE_TOOL_EN
+        tool = LANGUAGE_TOOL_EN
+    else:
+        raise ValueError(f"Language {lang_code} is not supported")
+
+    matches = tool.check(text)
+    error_categories = {}
+
+    # Categorize and count errors
+    for match in matches:
+        category = match.category
+        if category in error_categories:
+            error_categories[category] += 1
+        else:
+            error_categories[category] = 1
+
+    return error_categories, len(matches)
+
+
+def measure_text_features(text: str) -> Dict[str, Optional[int]]:
+    features = {
+        'double_spaces': len(re.findall(r'\s{2,}', text)),
+        'no_space_after_punctuation': len(re.findall(r'[,.:;!?](?=[^\s])', text)),
+        'emojis': len(re.findall(
+            r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002702-\U000027B0\U000024C2-\U0001F251]',
+            text)),
+        'question_marks': len(re.findall(r'\?', text)),
+        'exclamation_marks': len(re.findall(r'!', text)),
+        'double_question_marks': len(re.findall(r'\?\?', text)),
+        'double_exclamation_marks': len(re.findall(r'!!', text))
+    }
+    return features
