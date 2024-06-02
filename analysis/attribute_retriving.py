@@ -5,6 +5,7 @@ from typing import Dict, List, Union, Optional, Tuple
 
 import nltk
 import numpy as np
+from collections import defaultdict
 from bs4 import BeautifulSoup
 from nltk import pos_tag
 from nltk.tokenize import word_tokenize
@@ -21,7 +22,7 @@ from textblob import TextBlob
 
 import torch
 
-from analysis.nlp_transformations import replace_links_with_text, remove_stopwords_and_punctuation
+from analysis.nlp_transformations import replace_links_with_text, remove_stopwords_punctuation_emojis_and_splittings
 
 from models.stylometrix_metrics import AllStyloMetrixFeaturesEN, AllStyloMetrixFeaturesPL
 import html2text
@@ -233,7 +234,7 @@ def calculate_perplexity(text: str, language_code: str, per_token: Optional[str]
 # https://github.com/AIAnytime/GPT-Shield-AI-Plagiarism-Detector
 
 def calculate_burstiness(lemmatize_text: str, language_code: str) -> float:
-    tokens = remove_stopwords_and_punctuation(lemmatize_text, language_code)
+    tokens = remove_stopwords_punctuation_emojis_and_splittings(lemmatize_text, language_code)
 
     word_freq = nltk.FreqDist(tokens)
     avg_freq = float(sum(word_freq.values()) / len(word_freq))
@@ -241,6 +242,33 @@ def calculate_burstiness(lemmatize_text: str, language_code: str) -> float:
 
     burstiness_score = variance / (avg_freq ** 2)
     return burstiness_score
+
+# https://arxiv.org/pdf/2310.05030
+def calculate_burstiness_as_in_papers(lemmatized_text: str, language_code: str) -> float:
+    # Tokenize the text
+    tokens = remove_stopwords_punctuation_emojis_and_splittings(lemmatized_text, language_code)
+
+    # Create a dictionary to store the positions of each word
+    word_positions = defaultdict(list)
+
+    for index, word in enumerate(tokens):
+        word_positions[word].append(index)
+
+    inter_arrival_times = []
+
+    for positions in word_positions.values():
+        if len(positions) > 1:
+            inter_arrival_times.extend(np.diff(positions))
+
+    if not inter_arrival_times:
+        return 0.0
+
+    mean_iat = np.mean(inter_arrival_times)
+    std_iat = np.std(inter_arrival_times)
+
+    burstiness = (std_iat - mean_iat) / (std_iat + mean_iat)
+
+    return burstiness
 
 
 # https://github.com/thinkst/zippy/blob/main/burstiness.py

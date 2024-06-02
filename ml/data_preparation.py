@@ -1,10 +1,12 @@
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 
 import numpy as np
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.feature_selection import chi2, mutual_info_classif
 from sklearn.feature_selection import SelectKBest
 import pandas as pd
+
+from models.attribute import AttributeInDB
 
 
 def find_significant_features(data):
@@ -23,7 +25,7 @@ def find_significant_features(data):
     labels = [item[1] for item in data]
 
     # Fill missing values if necessary
-    df.fillna(method='ffill', inplace=True)
+    df.ffill(inplace=True)
 
     # Compute mutual information
     mi_scores = mutual_info_classif(df, labels)
@@ -53,9 +55,43 @@ def split_dataset(data_labels: List[Tuple[Dict, int]], train_size: float):
 
     return train_data, train_labels, test_data, test_labels
 
+
 def prepare_features(data: List[Dict]):
     """
     Converts list of dictionaries into a matrix of features suitable for sklearn models.
     """
     vectorizer = DictVectorizer(sparse=False)
     return vectorizer.fit_transform(data)
+
+
+def convert_db_attributes_to_input_data(generated: List[AttributeInDB],
+                                        real: List[AttributeInDB],
+                                        num_of_features: int = 10,
+                                        exclude_additionally: Optional[list] = None) -> List[Tuple[Dict, int]]:
+    data = [(x.to_flat_dict_normalized(), 1) for x in generated]
+    data += [(x.to_flat_dict_normalized(), 0) for x in real]
+    # replace None with 0
+    for i in range(len(data)):
+        for key in data[i][0].keys():
+            if data[i][0][key] is None:
+                data[i][0][key] = 0
+
+    significant_features = find_significant_features(data)
+    if exclude_additionally:
+        # remove features listed in exclude_additionally
+        significant_features = [x for x in significant_features if x not in exclude_additionally]
+
+    features_to_exclude = significant_features[num_of_features:]
+    # add features to exclude
+    if exclude_additionally:
+        features_to_exclude.extend(exclude_additionally)
+
+    data = [(x.to_flat_dict_normalized(exclude=features_to_exclude), 1) for x in generated]
+    data += [(x.to_flat_dict_normalized(exclude=features_to_exclude), 0) for x in real]
+    # replace None with 0
+    for i in range(len(data)):
+        for key in data[i][0].keys():
+            if data[i][0][key] is None:
+                data[i][0][key] = 0
+
+    return data

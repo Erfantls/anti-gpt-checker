@@ -33,13 +33,19 @@ def lemmatize_text(text: str, lang_code: str) -> Tuple[str, List[str]]:
     return lemma_text, lemma_list
 
 
-def remove_stopwords_and_punctuation(lemmatize_text: str, lang_code: str) -> List[str]:
+def remove_stopwords_punctuation_emojis_and_splittings(lemmatize_text: str, lang_code: str) -> List[str]:
     """
     Remove stopwords and punctuation from the text
     :param lemmatize_text: lemmatize_text to be cleaned
     :param lang_code: language of the text
     :return: list of cleaned words
     """
+    lemmatize_text = deemojify(lemmatize_text)
+    lemmatize_text = remove_footers(lemmatize_text)
+    lemmatize_text = re.sub(r'[=]+', ' ', lemmatize_text)
+    lemmatize_text = re.sub(r'[-]+', ' ', lemmatize_text)
+    lemmatize_text = re.sub(r'\d+', ' ', lemmatize_text)
+    lemmatize_text = re.sub(r'[^\w\s]', '', lemmatize_text)
     tokens = lemmatize_text.split()
     if lang_code == "pl":
         # read polish stopwords from file

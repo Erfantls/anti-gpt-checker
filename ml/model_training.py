@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
@@ -10,6 +10,11 @@ from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 
 from ml.data_preparation import split_dataset, prepare_features
 from ml.model_validation import calculate_classification_metrics
+from sklearn.model_selection import KFold
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.base import BaseEstimator
+from sklearn.feature_extraction import DictVectorizer
+import numpy as np
 
 
 def evaluate_models(data_labels: List[Tuple[dict, int]]):
@@ -49,3 +54,53 @@ def evaluate_models(data_labels: List[Tuple[dict, int]]):
         results[name] = metrics
 
     return results
+
+
+def k_fold_cross_validation(model: BaseEstimator, data_labels: List[Tuple[Dict, int]], k: int = 10) -> Dict[str, float]:
+    """
+    Performs k-fold cross-validation on the given model and data, returning average metrics.
+
+    Parameters:
+        model (BaseEstimator): The sklearn model to be evaluated.
+        data_labels (List[Tuple[Dict, int]]): Data as a list of (feature_dict, label) tuples.
+        k (int): Number of folds for cross-validation.
+
+    Returns:
+        Dict[str, float]: A dictionary of the average metrics (accuracy, precision, recall, f1_score, roc_auc) across the k folds.
+    """
+    kf = KFold(n_splits=k, shuffle=True, random_state=42)
+    metrics_accumulator = {
+        'accuracy': [],
+        'precision': [],
+        'recall': [],
+        'f1_score': [],
+        'roc_auc': [],
+        'TP': [],
+        'TN': [],
+        'FP': [],
+        'FN': []
+    }
+
+    vectorizer = DictVectorizer(sparse=False)
+    features = vectorizer.fit_transform([features for features, _ in data_labels])
+    labels = np.array([label for _, label in data_labels])
+
+    for train_index, test_index in kf.split(features):
+        X_train, X_test = features[train_index], features[test_index]
+        y_train, y_test = labels[train_index], labels[test_index]
+
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+        if hasattr(model, "predict_proba"):
+            y_scores = model.predict_proba(X_test)[:, 1]  # Probability estimates for the positive class
+        else:
+            y_scores = model.decision_function(X_test) if 'decision_function' in dir(model) else y_pred
+
+
+        fold_metrics = calculate_classification_metrics(y_test, y_pred, y_scores)
+        for key in metrics_accumulator:
+            metrics_accumulator[key].append(fold_metrics[key])
+
+    # Calculate the average of the metrics across all folds
+    average_metrics = {metric: np.mean(values) for metric, values in metrics_accumulator.items()}
+    return average_metrics
