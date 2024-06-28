@@ -1,4 +1,5 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
+import math
 
 from pydantic import BaseModel
 
@@ -6,53 +7,43 @@ from models.base_mongo_model import MongoObjectId, MongoDBModel
 from models.stylometrix_metrics import AllStyloMetrixFeaturesEN, AllStyloMetrixFeaturesPL
 from models.text_errors import TextErrors
 
+class AttributeNoDBParameters(BaseModel):
+    perplexity: Optional[float]  # V
+    perplexity_base: Optional[float]  # V
 
-class AttributeBase(BaseModel):
-    referenced_db_name: str #V
-    referenced_doc_id: MongoObjectId #V
-    language: Optional[str] #V
-    is_generated: Optional[bool] #V
-    is_personal: Optional[bool] #V
-
-    perplexity: Optional[float] #V
-    perplexity_base: Optional[float] #V
-
-    burstiness: Optional[float] #V
+    burstiness: Optional[float]  # V
     burstiness2: Optional[float]  # V
 
-    average_sentence_word_length: Optional[float] #V
-    standard_deviation_sentence_word_length: Optional[float] #V
-    variance_sentence_word_length: Optional[float] #V
+    average_sentence_word_length: Optional[float]  # V
+    standard_deviation_sentence_word_length: Optional[float]  # V
+    variance_sentence_word_length: Optional[float]  # V
 
-    standard_deviation_sentence_char_length: Optional[float] #V
-    variance_sentence_char_length: Optional[float] #V
-    average_sentence_char_length: Optional[float] #V
+    standard_deviation_sentence_char_length: Optional[float]  # V
+    variance_sentence_char_length: Optional[float]  # V
+    average_sentence_char_length: Optional[float]  # V
 
     standard_deviation_word_char_length: Optional[float]  # V
     variance_word_char_length: Optional[float]  # V
-    average_word_char_length: Optional[float] #V
+    average_word_char_length: Optional[float]  # V
 
-    punctuation: Optional[int] #V
-    punctuation_per_sentence: Optional[float] #P
-    punctuation_density: Optional[float] #P
+    punctuation: Optional[int]  # V
+    punctuation_per_sentence: Optional[float]  # P
+    punctuation_density: Optional[float]  # P
 
-    number_of_sentences: Optional[int] #V
-    number_of_words: Optional[int] #V
-    number_of_characters: Optional[int] #V
+    number_of_sentences: Optional[int]  # V
+    number_of_words: Optional[int]  # V
+    number_of_characters: Optional[int]  # V
 
-    stylometrix_metrics: Optional[AllStyloMetrixFeaturesEN | AllStyloMetrixFeaturesPL] #V
+    double_spaces: Optional[int | dict]  # V
+    no_space_after_punctuation: Optional[int]  # V
+    emojis: Optional[int]  # V
+    question_marks: Optional[int]  # V
+    exclamation_marks: Optional[int]  # V
+    double_question_marks: Optional[int]  # V
+    double_exclamation_marks: Optional[int]  # V
 
-    double_spaces: Optional[int | dict] #V
-    no_space_after_punctuation: Optional[int] #V
-    emojis: Optional[int] #V
-    question_marks: Optional[int] #V
-    exclamation_marks: Optional[int] #V
-    double_question_marks: Optional[int] #V
-    double_exclamation_marks: Optional[int] #V
-
-    text_errors_by_category: Optional[TextErrors] #V
-    number_of_errors: Optional[int] #V
-
+    text_errors_by_category: Optional[TextErrors]  # V
+    number_of_errors: Optional[int]  # V
 
     lemmatized_text: Optional[str]
 
@@ -90,8 +81,15 @@ class AttributeBase(BaseModel):
         flattened_dict['number_of_errors'] = self.number_of_errors/self.number_of_characters if self.number_of_errors is not None else 0
 
         for key in flattened_dict:
-            if key.startswith("text_errors_by_category."):
+            if flattened_dict[key] is None:
+                flattened_dict[key] = 0
+            elif math.isnan(flattened_dict[key]):
+                flattened_dict[key] = 0
+            elif key.startswith("text_errors_by_category."):
                 flattened_dict[key] = int(flattened_dict[key])/self.number_of_characters if flattened_dict[key] is not None else 0
+
+            elif key.startswith("stylometrix_metrics.") and not key.startswith("stylometrix_metrics.statistics."):
+                flattened_dict[key] = int(flattened_dict[key])/self.number_of_characters
 
         if exclude:
             for key in exclude:
@@ -100,8 +98,26 @@ class AttributeBase(BaseModel):
 
         return flattened_dict
 
-class Attribute(AttributeBase):
+class AttributeNoDBParametersPL(AttributeNoDBParameters):
+    stylometrix_metrics: Optional[AllStyloMetrixFeaturesPL]
+
+class AttributeNoDBParametersEN(AttributeNoDBParameters):
+    stylometrix_metrics: Optional[AllStyloMetrixFeaturesEN]
+class AttributeBase(AttributeNoDBParameters):
+    referenced_db_name: str #V
+    referenced_doc_id: MongoObjectId #V
+    language: Optional[str] #V
+    is_generated: Optional[bool] #V
+    is_personal: Optional[bool] #V
+
+class AttributePL(AttributeBase):
+    stylometrix_metrics: Optional[AllStyloMetrixFeaturesPL]
+
+class AttributeEN(AttributeBase):
+    stylometrix_metrics: Optional[AllStyloMetrixFeaturesEN]
+class AttributePLInDB(MongoDBModel, AttributePL):
+    pass
+class AttributeENInDB(MongoDBModel, AttributeEN):
     pass
 
-class AttributeInDB(MongoDBModel, AttributeBase):
-    pass
+AttributeInDB = Union[AttributePLInDB, AttributeENInDB]

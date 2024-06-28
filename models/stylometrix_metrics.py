@@ -221,7 +221,22 @@ class AllStyloMetrixFeaturesPL(BaseModel):
     descriptive: DescriptivePL
     graphical: GraphicalPL
 
+
     def __init__(self, **data):
+        super().__init__(
+            text=data.get("text"),
+            grammatical_forms=GrammaticalFormsPL(**data["grammatical_forms"]),
+            inflection=InflectionPL(**data["inflection"]),
+            syntactic=SyntacticPL(**data["syntactic"]),
+            punctuation=PunctuationPL(**data["punctuation"]),
+            lexical=LexicalPL(**data["lexical"]),
+            psycholinguistics=PsycholinguisticsPL(**data["psycholinguistics"]),
+            descriptive=DescriptivePL(**data["descriptive"]),
+            graphical=GraphicalPL(**data["graphical"])
+        )
+
+
+    def create(self, **data):
         # Initialize sub-models with empty dicts
         init_data = {
             "grammatical_forms": {},
@@ -491,6 +506,19 @@ class AllStyloMetrixFeaturesEN(BaseModel):
     hurtlex: HurtlexEN
 
     def __init__(self, **data):
+        super().__init__(
+            text=data.get("text"),
+            part_of_speech=PartOfSpeechEN(**data["part_of_speech"]),
+            lexical=LexicalEN(**data["lexical"]),
+            syntactic=SyntacticEN(**data["syntactic"]),
+            verb_tenses=VerbTensesEN(**data["verb_tenses"]),
+            statistics=StatisticsEN(**data["statistics"]),
+            pronouns=PronounsEN(**data["pronouns"]),
+            general=GeneralEN(**data["general"]),
+            hurtlex=HurtlexEN(**data["hurtlex"])
+        )
+
+    def create(self, **data):
         model_data = {
             "part_of_speech": {},
             "lexical": {},
@@ -516,7 +544,7 @@ class AllStyloMetrixFeaturesEN(BaseModel):
                         model_key = PREFIX_MAP_EN[prefix]
                     break
             else:
-                if len(key)<=3:
+                if len(key) <= 3:
                     model_key = 'hurtlex'
 
             if model_key:

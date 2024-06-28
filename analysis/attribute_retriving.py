@@ -1,3 +1,4 @@
+import string
 import sys, os
 import re
 import math
@@ -22,7 +23,9 @@ from textblob import TextBlob
 
 import torch
 
-from analysis.nlp_transformations import replace_links_with_text, remove_stopwords_punctuation_emojis_and_splittings
+from analysis.nlp_transformations import replace_links_with_text, remove_stopwords_punctuation_emojis_and_splittings, \
+    lemmatize_text, split_into_sentences
+from models.attribute import AttributePL, AttributeEN, AttributeNoDBParametersPL, AttributeNoDBParametersEN
 
 from models.stylometrix_metrics import AllStyloMetrixFeaturesEN, AllStyloMetrixFeaturesPL
 import html2text
@@ -167,7 +170,7 @@ def calculate_perplexity_old(text: str, language_word_probabilities: Dict[str, f
 
 
 def calculate_perplexity(text: str, language_code: str, per_token: Optional[str] = "word",
-                         return_base_ppl: bool = False) -> Optional[float]:
+                         return_base_ppl: bool = False, return_both: bool = False) -> Union[Optional[float], Tuple[float, float]]:
     text = replace_links_with_text(text)
     if per_token not in ["word", "char"]:
         raise ValueError("per_token must be either 'word' or 'char'")
@@ -228,6 +231,9 @@ def calculate_perplexity(text: str, language_code: str, per_token: Optional[str]
         return ppl
 
     ppl = float(torch.exp((torch.stack(nlls).sum()) / denominator).float())
+    if return_both:
+        return float((torch.stack(nlls).sum()).float()), ppl
+
     return ppl
 
 
@@ -435,3 +441,103 @@ def measure_text_features(text: str) -> Dict[str, Optional[int]]:
         'double_exclamation_marks': len(re.findall(r'!!', text))
     }
     return features
+
+
+def perform_full_analysis(text: str, lang_code: str) -> Union[AttributeNoDBParametersPL, AttributeNoDBParametersEN]:
+    perplexity_base, perplexity = calculate_perplexity(text, lang_code, return_both=True)
+
+    lem_text, _ = lemmatize_text(text, lang_code)
+    lem_text = lem_text.strip()
+    lemmatized_text = lem_text
+    burstiness = calculate_burstiness(lem_text, lang_code)
+    burstiness2 = calculate_burstiness_as_in_papers(lem_text, lang_code)
+
+
+    words = [token for token in text.split() if token not in string.punctuation]
+    number_of_words = len(words)
+    char_data = [len(word) for word in words]
+    number_of_characters = len(text)
+    average_word_char_length = sum(char_data) / len(char_data)
+    standard_deviation_word_char_length = std(char_data)
+    variance_word_char_length = var(char_data)
+
+    split_sentences: List[str] = split_into_sentences(text, lang_code)
+    number_of_sentences = len(split_sentences)
+    char_length_distribution, word_length_distribution = calc_distribution_sentence_length(split_sentences)
+    average_sentence_word_length = word_length_distribution[2]
+    standard_deviation_sentence_word_length = word_length_distribution[0]
+    variance_sentence_word_length = word_length_distribution[1]
+    average_sentence_char_length = char_length_distribution[2]
+    standard_deviation_sentence_char_length = char_length_distribution[0]
+    variance_sentence_char_length = char_length_distribution[1]
+
+
+    punctuation = len([char for char in text if char in ".,!?;:"])
+    punctuation_density = punctuation / number_of_characters
+    punctuation_per_sentence = punctuation / number_of_sentences
+
+    text_features = measure_text_features(text)
+    double_spaces = text_features['double_spaces']
+    no_space_after_punctuation = text_features['no_space_after_punctuation']
+    emojis = text_features['emojis']
+    question_marks = text_features['question_marks']
+    exclamation_marks = text_features['exclamation_marks']
+    double_question_marks = text_features['double_question_marks']
+    double_exclamation_marks = text_features['double_exclamation_marks']
+
+    text_errors_by_category, number_of_errors = spelling_and_grammar_check(text, lang_code)
+
+    stylometrix_metrics = stylo_metrix_analysis([text], lang_code)[0]
+
+
+    if lang_code == "en":
+        pos_eng_tags = count_pos_tags_eng(text)
+        sentiment_eng = sentiment_score_eng(text)
+        return AttributeNoDBParametersEN(perplexity=perplexity, perplexity_base=perplexity_base,
+                                         burstiness=burstiness, burstiness2=burstiness2,
+                                         average_sentence_word_length=average_sentence_word_length,
+                                         standard_deviation_sentence_word_length=standard_deviation_sentence_word_length,
+                                         variance_sentence_word_length=variance_sentence_word_length,
+                                         standard_deviation_sentence_char_length=standard_deviation_sentence_char_length,
+                                         variance_sentence_char_length=variance_sentence_char_length,
+                                         average_sentence_char_length=average_sentence_char_length,
+                                         standard_deviation_word_char_length=standard_deviation_word_char_length,
+                                         variance_word_char_length=variance_word_char_length,
+                                         average_word_char_length=average_word_char_length,
+                                         punctuation=punctuation, punctuation_per_sentence=punctuation_per_sentence,
+                                         punctuation_density=punctuation_density, number_of_sentences=number_of_sentences,
+                                         number_of_words=number_of_words, number_of_characters=number_of_characters,
+                                         double_spaces=double_spaces, no_space_after_punctuation=no_space_after_punctuation,
+                                         emojis=emojis, question_marks=question_marks, exclamation_marks=exclamation_marks,
+                                         double_question_marks=double_question_marks,
+                                         double_exclamation_marks=double_exclamation_marks,
+                                         text_errors_by_category=text_errors_by_category, number_of_errors=number_of_errors,
+                                         lemmatized_text=lemmatized_text, pos_eng_tags=pos_eng_tags, sentiment_eng=sentiment_eng,
+                                         stylometrix_metrics=stylometrix_metrics.dict())
+    elif lang_code == "pl":
+        pos_eng_tags = None
+        sentiment_eng = None
+        return AttributeNoDBParametersPL(perplexity=perplexity, perplexity_base=perplexity_base,
+                                         burstiness=burstiness, burstiness2=burstiness2,
+                                         average_sentence_word_length=average_sentence_word_length,
+                                         standard_deviation_sentence_word_length=standard_deviation_sentence_word_length,
+                                         variance_sentence_word_length=variance_sentence_word_length,
+                                         standard_deviation_sentence_char_length=standard_deviation_sentence_char_length,
+                                         variance_sentence_char_length=variance_sentence_char_length,
+                                         average_sentence_char_length=average_sentence_char_length,
+                                         standard_deviation_word_char_length=standard_deviation_word_char_length,
+                                         variance_word_char_length=variance_word_char_length,
+                                         average_word_char_length=average_word_char_length,
+                                         punctuation=punctuation, punctuation_per_sentence=punctuation_per_sentence,
+                                         punctuation_density=punctuation_density, number_of_sentences=number_of_sentences,
+                                         number_of_words=number_of_words, number_of_characters=number_of_characters,
+                                         double_spaces=double_spaces, no_space_after_punctuation=no_space_after_punctuation,
+                                         emojis=emojis, question_marks=question_marks, exclamation_marks=exclamation_marks,
+                                         double_question_marks=double_question_marks,
+                                         double_exclamation_marks=double_exclamation_marks,
+                                         text_errors_by_category=text_errors_by_category, number_of_errors=number_of_errors,
+                                         lemmatized_text=lemmatized_text, pos_eng_tags=pos_eng_tags, sentiment_eng=sentiment_eng,
+                                         stylometrix_metrics=stylometrix_metrics.dict())
+    else:
+        raise ValueError(f"Language {lang_code} is not supported")
+
