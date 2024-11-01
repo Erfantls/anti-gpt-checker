@@ -129,3 +129,15 @@ def split_into_sentences(text: str, lang_code: str) -> List[str]:
 
     sentences = sentence_tokenizer.tokenize(text)
     return sentences
+
+def remove_report_tags(text: str) -> str:
+    # Remove the tags from the report
+    tags = ["<<Imię>>", "<<Nazwisko>>", "<<nr albumu>>", "<<adres e-mail>>", "<<tabela>>", "<<obrazek>>"]
+    for tag in tags:
+        text = text.replace(tag, "")
+    text = "\n".join([line.strip() for line in text.splitlines() if line.strip()])
+    return text
+
+def replace_whitespaces(text: str) -> str:
+    # Replace multiple whitespaces with a single whitespace
+    return text.replace('\u200B', " ")

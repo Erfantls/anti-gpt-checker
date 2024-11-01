@@ -68,8 +68,9 @@ def convert_db_attributes_to_input_data(generated: List[AttributeInDB],
                                         real: List[AttributeInDB],
                                         num_of_features: int = 10,
                                         exclude_additionally: Optional[list] = None) -> List[Tuple[Dict, int]]:
-    data = [(x.to_flat_dict_normalized(), 1) for x in generated]
-    data += [(x.to_flat_dict_normalized(), 0) for x in real]
+
+    data = [(x.to_flat_dict_normalized(exclude=exclude_additionally), 1) for x in generated]
+    data += [(x.to_flat_dict_normalized(exclude=exclude_additionally), 0) for x in real]
     # replace None with 0
     for i in range(len(data)):
         for key in data[i][0].keys():

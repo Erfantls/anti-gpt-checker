@@ -70,6 +70,10 @@ class AttributeNoDBParameters(BaseModel):
 
     def to_flat_dict_normalized(self, exclude=None):
         temp_dict = self.dict(exclude={"referenced_db_name", "is_generated", "is_personal", "referenced_doc_id", "language", "id", "pos_eng_tags", "sentiment_eng", "punctuation", "perplexity_base", "lemmatized_text"})
+        if exclude:
+            for key in exclude:
+                if key in temp_dict:
+                    temp_dict.pop(key)
         flattened_dict = self._flatten_dict(temp_dict)
         flattened_dict['double_spaces'] = self.double_spaces/self.number_of_characters if self.double_spaces is not None else 0
         flattened_dict['no_space_after_punctuation'] = self.no_space_after_punctuation/self.number_of_characters if self.no_space_after_punctuation is not None else 0

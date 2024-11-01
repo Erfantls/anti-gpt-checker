@@ -7,6 +7,8 @@ from typing import Dict, List, Union, Optional, Tuple
 import nltk
 import numpy as np
 from collections import defaultdict
+
+import pandas as pd
 from bs4 import BeautifulSoup
 from nltk import pos_tag
 from nltk.tokenize import word_tokenize
@@ -121,9 +123,32 @@ def count_punctuation(text: str) -> float:
 def stylo_metrix_analysis(texts: List[str], language_code: str) -> list[
     AllStyloMetrixFeaturesPL | AllStyloMetrixFeaturesEN]:
     stylo = sm.StyloMetrix(language_code)
-    metrics = stylo.transform(texts)
-    converted_metrics = stylo_metrix_output_to_model(metrics, language_code)
-    return converted_metrics
+    max_stylometrix_length = 512
+    tokens = stylo.nlp(texts[0])
+    if len(tokens) < max_stylometrix_length:
+        metrics = stylo.transform(texts[0])
+        converted_metrics = stylo_metrix_output_to_model(metrics, language_code)
+        return converted_metrics
+    else:
+        converted_metrics = []
+        num_of_slices = (len(tokens) // max_stylometrix_length) +1
+        slice_length = len(texts[0]) // num_of_slices
+        for i in range(0, num_of_slices, slice_length):
+            text_to_analyze = texts[0][i:i + slice_length]
+            metrics = stylo.transform(text_to_analyze)
+            converted_metrics.append(metrics)
+
+        averaged_metrics = {}
+        for metric in converted_metrics[0].__dict__.keys():
+            if metric == "text":
+                continue
+            metric_values = [getattr(metric_dict.__dict__, metric, 0) for metric_dict in converted_metrics]
+            averaged_metrics[metric] = sum(metric_values) / len(metric_values)
+
+        averaged_metrics["text"] = texts[0]
+        df = pd.DataFrame(averaged_metrics, index=[0])
+        converted_metrics = stylo_metrix_output_to_model(df, language_code)
+        return converted_metrics
 
 
 def stylo_metrix_output_to_model(metrics_df: DataFrame, language_code: str) -> list[
@@ -131,9 +156,9 @@ def stylo_metrix_output_to_model(metrics_df: DataFrame, language_code: str) -> l
     model_instances = []
     for index, row in metrics_df.iterrows():
         if language_code == "pl":
-            model_instance = AllStyloMetrixFeaturesPL(**row.to_dict())
+            model_instance = AllStyloMetrixFeaturesPL(with_prepare=True, **row.to_dict())
         elif language_code == "en":
-            model_instance = AllStyloMetrixFeaturesEN(**row.to_dict())
+            model_instance = AllStyloMetrixFeaturesEN(with_prepare=True, **row.to_dict())
         else:
             raise ValueError(f"Language {language_code} is not supported")
 
@@ -444,7 +469,7 @@ def measure_text_features(text: str) -> Dict[str, Optional[int]]:
 
 
 def perform_full_analysis(text: str, lang_code: str) -> Union[AttributeNoDBParametersPL, AttributeNoDBParametersEN]:
-    perplexity_base, perplexity = calculate_perplexity(text, lang_code, return_both=True)
+    perplexity_base, perplexity = None, None #calculate_perplexity(text, lang_code, return_both=True)
 
     lem_text, _ = lemmatize_text(text, lang_code)
     lem_text = lem_text.strip()
@@ -471,7 +496,6 @@ def perform_full_analysis(text: str, lang_code: str) -> Union[AttributeNoDBParam
     standard_deviation_sentence_char_length = char_length_distribution[0]
     variance_sentence_char_length = char_length_distribution[1]
 
-
     punctuation = len([char for char in text if char in ".,!?;:"])
     punctuation_density = punctuation / number_of_characters
     punctuation_per_sentence = punctuation / number_of_sentences
@@ -484,9 +508,7 @@ def perform_full_analysis(text: str, lang_code: str) -> Union[AttributeNoDBParam
     exclamation_marks = text_features['exclamation_marks']
     double_question_marks = text_features['double_question_marks']
     double_exclamation_marks = text_features['double_exclamation_marks']
-
     text_errors_by_category, number_of_errors = spelling_and_grammar_check(text, lang_code)
-
     stylometrix_metrics = stylo_metrix_analysis([text], lang_code)[0]
 
 
@@ -513,7 +535,7 @@ def perform_full_analysis(text: str, lang_code: str) -> Union[AttributeNoDBParam
                                          double_exclamation_marks=double_exclamation_marks,
                                          text_errors_by_category=text_errors_by_category, number_of_errors=number_of_errors,
                                          lemmatized_text=lemmatized_text, pos_eng_tags=pos_eng_tags, sentiment_eng=sentiment_eng,
-                                         stylometrix_metrics=stylometrix_metrics.dict())
+                                         stylometrix_metrics=stylometrix_metrics.dict() if stylometrix_metrics is not None else None)
     elif lang_code == "pl":
         pos_eng_tags = None
         sentiment_eng = None
@@ -537,7 +559,7 @@ def perform_full_analysis(text: str, lang_code: str) -> Union[AttributeNoDBParam
                                          double_exclamation_marks=double_exclamation_marks,
                                          text_errors_by_category=text_errors_by_category, number_of_errors=number_of_errors,
                                          lemmatized_text=lemmatized_text, pos_eng_tags=pos_eng_tags, sentiment_eng=sentiment_eng,
-                                         stylometrix_metrics=stylometrix_metrics.dict())
+                                         stylometrix_metrics=stylometrix_metrics.dict() if stylometrix_metrics is not None else None)
     else:
         raise ValueError(f"Language {lang_code} is not supported")
 

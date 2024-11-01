@@ -222,18 +222,50 @@ class AllStyloMetrixFeaturesPL(BaseModel):
     graphical: GraphicalPL
 
 
-    def __init__(self, **data):
-        super().__init__(
-            text=data.get("text"),
-            grammatical_forms=GrammaticalFormsPL(**data["grammatical_forms"]),
-            inflection=InflectionPL(**data["inflection"]),
-            syntactic=SyntacticPL(**data["syntactic"]),
-            punctuation=PunctuationPL(**data["punctuation"]),
-            lexical=LexicalPL(**data["lexical"]),
-            psycholinguistics=PsycholinguisticsPL(**data["psycholinguistics"]),
-            descriptive=DescriptivePL(**data["descriptive"]),
-            graphical=GraphicalPL(**data["graphical"])
-        )
+    def __init__(self, with_prepare: bool = False, **data):
+        if with_prepare:
+            # Initialize sub-models with empty dicts
+            init_data = {
+                "grammatical_forms": {},
+                "inflection": {},
+                "syntactic": {},
+                "punctuation": {},
+                "lexical": {},
+                "psycholinguistics": {},
+                "descriptive": {},
+                "graphical": {}
+            }
+
+            # Distribute data to corresponding sub-models based on prefix
+            for key, value in data.items():
+                for prefix, model_name in PREFIX_MAP_PL.items():
+                    if key.startswith(prefix):
+                        init_data[model_name][key] = value
+                        break
+
+            super().__init__(
+                text=data.get("text"),
+                grammatical_forms=GrammaticalFormsPL(**init_data["grammatical_forms"]),
+                inflection=InflectionPL(**init_data["inflection"]),
+                syntactic=SyntacticPL(**init_data["syntactic"]),
+                punctuation=PunctuationPL(**init_data["punctuation"]),
+                lexical=LexicalPL(**init_data["lexical"]),
+                psycholinguistics=PsycholinguisticsPL(**init_data["psycholinguistics"]),
+                descriptive=DescriptivePL(**init_data["descriptive"]),
+                graphical=GraphicalPL(**init_data["graphical"])
+            )
+        else:
+            super().__init__(
+                text=data.get("text"),
+                grammatical_forms=GrammaticalFormsPL(**data["grammatical_forms"]),
+                inflection=InflectionPL(**data["inflection"]),
+                syntactic=SyntacticPL(**data["syntactic"]),
+                punctuation=PunctuationPL(**data["punctuation"]),
+                lexical=LexicalPL(**data["lexical"]),
+                psycholinguistics=PsycholinguisticsPL(**data["psycholinguistics"]),
+                descriptive=DescriptivePL(**data["descriptive"]),
+                graphical=GraphicalPL(**data["graphical"])
+            )
 
 
     def create(self, **data):
@@ -505,18 +537,63 @@ class AllStyloMetrixFeaturesEN(BaseModel):
     general: GeneralEN
     hurtlex: HurtlexEN
 
-    def __init__(self, **data):
-        super().__init__(
-            text=data.get("text"),
-            part_of_speech=PartOfSpeechEN(**data["part_of_speech"]),
-            lexical=LexicalEN(**data["lexical"]),
-            syntactic=SyntacticEN(**data["syntactic"]),
-            verb_tenses=VerbTensesEN(**data["verb_tenses"]),
-            statistics=StatisticsEN(**data["statistics"]),
-            pronouns=PronounsEN(**data["pronouns"]),
-            general=GeneralEN(**data["general"]),
-            hurtlex=HurtlexEN(**data["hurtlex"])
-        )
+    def __init__(self, with_prepare: bool = False, **data):
+        if with_prepare:
+            model_data = {
+                "part_of_speech": {},
+                "lexical": {},
+                "syntactic": {},
+                "verb_tenses": {},
+                "statistics": {},
+                "pronouns": {},
+                "general": {},
+                "hurtlex": {}
+            }
+
+            # Distribute the incoming data to the respective model data structures
+            for key, value in data.items():
+                model_key = None
+                for prefix in PREFIX_MAP_EN:
+                    if key.startswith(prefix):
+                        if isinstance(PREFIX_MAP_EN[prefix], list):
+                            if key.endswith("_PRON"):
+                                model_key = PREFIX_MAP_EN[prefix][1]
+                            else:
+                                model_key = PREFIX_MAP_EN[prefix][0]
+                        else:
+                            model_key = PREFIX_MAP_EN[prefix]
+                        break
+                else:
+                    if len(key) <= 3:
+                        model_key = 'hurtlex'
+
+                if model_key:
+                    model_data[model_key][key] = value
+
+            # Initialize each specific model with its data
+            super().__init__(
+                text=data.get("text"),
+                part_of_speech=PartOfSpeechEN(**model_data["part_of_speech"]),
+                lexical=LexicalEN(**model_data["lexical"]),
+                syntactic=SyntacticEN(**model_data["syntactic"]),
+                verb_tenses=VerbTensesEN(**model_data["verb_tenses"]),
+                statistics=StatisticsEN(**model_data["statistics"]),
+                pronouns=PronounsEN(**model_data["pronouns"]),
+                general=GeneralEN(**model_data["general"]),
+                hurtlex=HurtlexEN(**model_data["hurtlex"])
+            )
+        else:
+            super().__init__(
+                text=data.get("text"),
+                part_of_speech=PartOfSpeechEN(**data["part_of_speech"]),
+                lexical=LexicalEN(**data["lexical"]),
+                syntactic=SyntacticEN(**data["syntactic"]),
+                verb_tenses=VerbTensesEN(**data["verb_tenses"]),
+                statistics=StatisticsEN(**data["statistics"]),
+                pronouns=PronounsEN(**data["pronouns"]),
+                general=GeneralEN(**data["general"]),
+                hurtlex=HurtlexEN(**data["hurtlex"])
+            )
 
     def create(self, **data):
         model_data = {
