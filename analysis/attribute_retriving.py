@@ -33,6 +33,7 @@ from models.stylometrix_metrics import AllStyloMetrixFeaturesEN, AllStyloMetrixF
 import html2text
 
 html2text_handler = html2text.HTML2Text()
+MAX_STYLOMETRIX_LENGTH = 512
 
 
 def average_word_length(text: str) -> float:
@@ -123,32 +124,36 @@ def count_punctuation(text: str) -> float:
 def stylo_metrix_analysis(texts: List[str], language_code: str) -> list[
     AllStyloMetrixFeaturesPL | AllStyloMetrixFeaturesEN]:
     stylo = sm.StyloMetrix(language_code)
-    max_stylometrix_length = 512
+
     tokens = stylo.nlp(texts[0])
-    if len(tokens) < max_stylometrix_length:
+    if len(tokens) < MAX_STYLOMETRIX_LENGTH:
         metrics = stylo.transform(texts[0])
         converted_metrics = stylo_metrix_output_to_model(metrics, language_code)
         return converted_metrics
     else:
         converted_metrics = []
-        num_of_slices = (len(tokens) // max_stylometrix_length) +1
-        slice_length = len(texts[0]) // num_of_slices
-        for i in range(0, num_of_slices, slice_length):
-            text_to_analyze = texts[0][i:i + slice_length]
-            metrics = stylo.transform(text_to_analyze)
-            converted_metrics.append(metrics)
-
+        stylometrix_analysis_slice_of_text(texts[0], language_code, converted_metrics, stylo)
         averaged_metrics = {}
-        for metric in converted_metrics[0].__dict__.keys():
+        for metric in converted_metrics[0].to_dict().keys():
             if metric == "text":
                 continue
-            metric_values = [getattr(metric_dict.__dict__, metric, 0) for metric_dict in converted_metrics]
+            metric_values = [metric_dict.to_dict()[metric][0] for metric_dict in converted_metrics]
             averaged_metrics[metric] = sum(metric_values) / len(metric_values)
 
         averaged_metrics["text"] = texts[0]
         df = pd.DataFrame(averaged_metrics, index=[0])
         converted_metrics = stylo_metrix_output_to_model(df, language_code)
         return converted_metrics
+
+def stylometrix_analysis_slice_of_text(text: str, language_code: str, already_analysed_list: list, stylo):
+    tokens = stylo.nlp(text)
+    if len(tokens) < MAX_STYLOMETRIX_LENGTH:
+        metrics = stylo.transform(text)
+        already_analysed_list.append(metrics)
+    else:
+        stylometrix_analysis_slice_of_text(text[:len(text) // 2], language_code, already_analysed_list, stylo)
+        stylometrix_analysis_slice_of_text(text[len(text) // 2:], language_code, already_analysed_list, stylo)
+
 
 
 def stylo_metrix_output_to_model(metrics_df: DataFrame, language_code: str) -> list[
