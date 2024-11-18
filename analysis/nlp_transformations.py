@@ -132,7 +132,7 @@ def split_into_sentences(text: str, lang_code: str) -> List[str]:
 
 def remove_report_tags(text: str) -> str:
     # Remove the tags from the report
-    tags = ["<<Imię>>", "<<Nazwisko>>", "<<nr albumu>>", "<<adres e-mail>>", "<<tabela>>", "<<obrazek>>"]
+    tags = ["<<Imię>>", "<<Nazwisko>>", "<<nr albumu>>", "<<adres e-mail>>", "<<tabela>>", "<<obrazek>>", "<<obcy język>>"]
     for tag in tags:
         text = text.replace(tag, "")
     text = "\n".join([line.strip() for line in text.splitlines() if line.strip()])
