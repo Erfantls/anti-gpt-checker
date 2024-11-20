@@ -14,6 +14,7 @@ nltk.download('stopwords')
 nltk.download('punkt')
 nltk.download('pl196x')
 nltk.download('wordnet')
+nltk.download('punkt_tab')
 
 MONGODB_URI = os.getenv("MONGODB_URI")
 MONGODB_PORT = int(os.getenv("MONGODB_PORT"))
