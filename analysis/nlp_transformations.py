@@ -6,6 +6,8 @@ import re
 import nltk
 from nltk.corpus import stopwords
 
+from config import RELATIVE_PATH_TO_PROJECT
+
 
 def lemmatize_text(text: str, lang_code: str) -> Tuple[str, List[str]]:
     """
@@ -49,7 +51,7 @@ def remove_stopwords_punctuation_emojis_and_splittings(lemmatize_text: str, lang
     tokens = lemmatize_text.split()
     if lang_code == "pl":
         # read polish stopwords from file
-        with open("../static/polish.stopwords.txt", "r") as file:
+        with open(f"{RELATIVE_PATH_TO_PROJECT}static/polish.stopwords.txt", "r") as file:
             stop_words = file.read().splitlines()
     elif lang_code == "en":
         stop_words = set(stopwords.words('english'))

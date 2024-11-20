@@ -89,6 +89,8 @@ def init_english_perplexity_model(model_name: str = PERPLEXITY_ENGLISH_GPT2_MODE
     global PERPLEXITY_ENGLISH_TOKENIZER
     PERPLEXITY_ENGLISH_TOKENIZER = GPT2TokenizerFast.from_pretrained(model_name)
 
+RELATIVE_PATH_TO_PROJECT = os.getenv("RELATIVE_PATH_TO_PROJECT")
+
 
 
 
