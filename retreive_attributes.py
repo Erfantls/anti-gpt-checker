@@ -10,7 +10,7 @@ from models.lab_report import LabReportInDB
 from models.attribute import AttributePL, AttributePLInDB
 
 from analysis.attribute_retriving import perform_full_analysis
-from analysis.nlp_transformations import remove_report_tags, replace_whitespaces, replace_links_with_text
+from analysis.nlp_transformations import remove_report_tags, replace_whitespaces, replace_links_with_text, replace_meaningful_report_tags
 from services.utils import suppress_stdout
 
 if __name__ == "__main__":
@@ -30,7 +30,8 @@ if __name__ == "__main__":
 
     for real_lab_report in tqdm(real_lab_reports, total=len(real_lab_reports),
                                 desc=f'Calculating real lab reports statistics', unit='Lab reports', miniters=1):
-        text_to_analyse = remove_report_tags(real_lab_report.plaintext_content)
+        text_to_analyse = replace_meaningful_report_tags(real_lab_report.plaintext_content)
+        text_to_analyse = remove_report_tags(text_to_analyse)
         text_to_analyse = replace_whitespaces(text_to_analyse)
         text_to_analyse = replace_links_with_text(text_to_analyse, replacement="")
         with suppress_stdout():
@@ -48,7 +49,8 @@ if __name__ == "__main__":
     for generated_lab_report in tqdm(generated_lab_reports, total=len(generated_lab_reports),
                                      desc=f'Calculating generated lab reports statistics', unit='Lab reports',
                                      miniters=1):
-        text_to_analyse = remove_report_tags(generated_lab_report.plaintext_content)
+        text_to_analyse = replace_meaningful_report_tags(generated_lab_report.plaintext_content)
+        text_to_analyse = remove_report_tags(text_to_analyse)
         text_to_analyse = replace_whitespaces(text_to_analyse)
         text_to_analyse = replace_links_with_text(text_to_analyse, replacement="")
         with suppress_stdout():

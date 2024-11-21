@@ -132,6 +132,11 @@ def split_into_sentences(text: str, lang_code: str) -> List[str]:
     sentences = sentence_tokenizer.tokenize(text)
     return sentences
 
+def replace_meaningful_report_tags(text: str) -> str:
+    # Replace tags with placeholders
+    text = text.replace("<<Imię>>", "IMIĘ").replace("<<Nazwisko>>", "NAZWISKO").replace("<<adres e-mail>>", "ADRES E-MAIL")
+    text = "\n".join([line.strip() for line in text.splitlines() if line.strip()])
+    return text
 def remove_report_tags(text: str) -> str:
     # Remove the tags from the report
     tags = ["<<Imię>>", "<<Nazwisko>>", "<<nr albumu>>", "<<adres e-mail>>", "<<tabela>>", "<<obrazek>>", "<<obcy język>>"]
