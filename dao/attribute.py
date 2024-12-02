@@ -4,17 +4,17 @@ from models.attribute import AttributePL, AttributeEN, AttributePLInDB, Attribut
 
 
 class DAOAttributePL(DAOBase):
-    def __init__(self):
+    def __init__(self, collection_name=ATTRIBUTES_COLLECTION_NAME):
         super().__init__(MONGO_CLIENT,
                          MONGODB_DB_NAME,
-                         ATTRIBUTES_COLLECTION_NAME,
+                         collection_name,
                          AttributePL,
                          AttributePLInDB)
 
 class DAOAttributeEN(DAOBase):
-    def __init__(self):
+    def __init__(self, collection_name=ATTRIBUTES_COLLECTION_NAME):
         super().__init__(MONGO_CLIENT,
                          MONGODB_DB_NAME,
-                         ATTRIBUTES_COLLECTION_NAME,
+                         collection_name,
                          AttributeEN,
                          AttributeENInDB)

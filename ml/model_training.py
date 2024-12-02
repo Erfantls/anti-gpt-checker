@@ -17,7 +17,7 @@ from sklearn.feature_extraction import DictVectorizer
 import numpy as np
 
 
-def evaluate_models(data_labels: List[Tuple[dict, int]]):
+def evaluate_models(data_labels: List[Tuple[dict, int]]) -> Dict[str, Dict[str, float]]:
     train_data, train_labels, test_data, test_labels = split_dataset(data_labels, train_size=0.7)
 
     # Convert dictionary features to numpy arrays

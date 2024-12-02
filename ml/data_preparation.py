@@ -96,3 +96,17 @@ def convert_db_attributes_to_input_data(generated: List[AttributeInDB],
                 data[i][0][key] = 0
 
     return data
+
+def convert_db_to_attributes_selected_features(generated: List[AttributeInDB],
+                             real: List[AttributeInDB],
+                             selected_features: list[str]) -> List[Tuple[Dict, int]]:
+    data = [(x.to_flat_dict_normalized(), 1) for x in generated]
+    data += [(x.to_flat_dict_normalized(), 0) for x in real]
+
+    attributes_dict = []
+
+    for i in range(len(data)):
+        filtered_row = {key: value for key, value in data[i][0].items() if key in selected_features}
+        attributes_dict.append((filtered_row, data[i][1]))
+
+    return attributes_dict
