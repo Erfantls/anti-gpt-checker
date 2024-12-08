@@ -34,6 +34,8 @@ if __name__ == "__main__":
         text_to_analyse = remove_report_tags(text_to_analyse)
         text_to_analyse = replace_whitespaces(text_to_analyse)
         text_to_analyse = replace_links_with_text(text_to_analyse, replacement="")
+        text_to_analyse = text_to_analyse.replace("\n ", " ")
+        text_to_analyse = text_to_analyse.replace("\n", " ")
         with suppress_stdout():
             analysis_result = perform_full_analysis(text_to_analyse, 'pl')
         attribute_to_insert = AttributePL(
@@ -53,6 +55,8 @@ if __name__ == "__main__":
         text_to_analyse = remove_report_tags(text_to_analyse)
         text_to_analyse = replace_whitespaces(text_to_analyse)
         text_to_analyse = replace_links_with_text(text_to_analyse, replacement="")
+        text_to_analyse = text_to_analyse.replace("\n ", " ")
+        text_to_analyse = text_to_analyse.replace("\n", " ")
         with suppress_stdout():
             analysis_result = perform_full_analysis(text_to_analyse, 'pl')
         attribute_to_insert = AttributePL(
