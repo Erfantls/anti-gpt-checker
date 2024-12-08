@@ -20,5 +20,5 @@ if __name__ == "__main__":
         text_to_analyse = attribute_in_db.stylometrix_metrics.text
         with suppress_stdout():
             perplexity_base, perplexity = calculate_perplexity(text_to_analyse, 'pl', return_both=True)
-        dao_attributes.update_one({'id': attribute_in_db.id},
-                                  {'perplexity_base': perplexity_base, 'perplexity': perplexity})
+        dao_attributes.update_one({'_id': attribute_in_db.id},
+                                  {"$set": {'perplexity_base': perplexity_base, 'perplexity': perplexity}})
