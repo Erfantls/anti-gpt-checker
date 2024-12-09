@@ -200,7 +200,8 @@ def calculate_perplexity_old(text: str, language_word_probabilities: Dict[str, f
 
 
 def calculate_perplexity(text: str, language_code: str, per_token: Optional[str] = "word",
-                         return_base_ppl: bool = False, return_both: bool = False, force_use_cpu: bool = False) -> Union[Optional[float], Tuple[float, float]]:
+                         return_base_ppl: bool = False, return_both: bool = False,
+                         force_use_cpu: bool = False) -> Union[Optional[float], Tuple[float, float]]:
     text = replace_links_with_text(text)
     if per_token not in ["word", "char"]:
         raise ValueError("per_token must be either 'word' or 'char'")
@@ -217,58 +218,119 @@ def calculate_perplexity(text: str, language_code: str, per_token: Optional[str]
         from config import PERPLEXITY_POLISH_TOKENIZER, PERPLEXITY_POLISH_MODEL
         tokenizer = PERPLEXITY_POLISH_TOKENIZER
         model = PERPLEXITY_POLISH_MODEL
-        if torch.cuda.is_available() and not force_use_cpu:
-            model = model.to('cuda')
     elif language_code == "en":
         from config import PERPLEXITY_ENGLISH_TOKENIZER, PERPLEXITY_ENGLISH_MODEL
         tokenizer = PERPLEXITY_ENGLISH_TOKENIZER
         model = PERPLEXITY_ENGLISH_MODEL
-        if torch.cuda.is_available() and not force_use_cpu:
-            model = model.to('cuda')
     else:
         raise ValueError("Language code must be either 'pl' or 'en'")
 
-    encodings = tokenizer(text, return_tensors="pt")
+    # Determine device based on force_use_cpu flag and GPU availability
+    if force_use_cpu:
+        device = 'cpu'
+    else:
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+    model = model.to(device)
+    model.eval()
 
     max_length = model.config.n_positions
-    stride = 512
-    seq_len = encodings.input_ids.size(1)
+    encodings = recursively_calculate_encodings(text, tokenizer, max_length) # tokenizer(text, return_tensors="pt")
 
-    nlls = []
+    stride = 512
+    if isinstance(encodings, dict):
+        seq_len = encodings['input_ids'].size(1)
+    else:
+        seq_len = encodings.input_ids.size(1)
+
+    sum_nll = 0.0
     prev_end_loc = 0
     for begin_loc in range(0, seq_len, stride):
         end_loc = min(begin_loc + max_length, seq_len)
-        trg_len = end_loc - prev_end_loc  # may be different from stride on last loop
-        input_ids = encodings.input_ids[:, begin_loc:end_loc].to('cuda' if (torch.cuda.is_available() and not force_use_cpu) else 'cpu')
+        trg_len = end_loc - prev_end_loc
+        if isinstance(encodings, dict):
+            input_ids = encodings['input_ids'][:, begin_loc:end_loc].to(device)
+        else:
+            input_ids = encodings.input_ids[:, begin_loc:end_loc].to(device)
         target_ids = input_ids.clone()
         target_ids[:, :-trg_len] = -100
 
         with torch.no_grad():
             outputs = model(input_ids, labels=target_ids)
+            neg_log_likelihood = outputs.loss.detach().cpu().item()
 
-            # loss is calculated using CrossEntropyLoss which averages over valid labels
-            # N.B. the model only calculates loss over trg_len - 1 labels, because it internally shifts the labels
-            # to the left by 1.
-            neg_log_likelihood = outputs.loss
+        sum_nll += neg_log_likelihood
 
-        nlls.append(neg_log_likelihood)
+        # Clean up
+        del outputs, input_ids, target_ids
+        if device == 'cuda':
+            torch.cuda.empty_cache()
 
         prev_end_loc = end_loc
         if end_loc == seq_len:
             break
 
-    if len(nlls) == 0:
+    if prev_end_loc == 0:
         return None
 
-    if return_base_ppl:
-        ppl = float((torch.stack(nlls).sum()).float())
-        return ppl
+    sum_nll_tensor = torch.tensor(sum_nll)
 
-    ppl = float(torch.exp((torch.stack(nlls).sum()) / denominator).float())
+    if return_base_ppl:
+        return float(sum_nll_tensor)
+
+    ppl = float(torch.exp(sum_nll_tensor / denominator).float())
     if return_both:
-        return float((torch.stack(nlls).sum()).float()), ppl
+        return float(sum_nll_tensor), ppl
 
     return ppl
+
+
+import torch
+import warnings
+
+
+import torch
+import warnings
+
+def recursively_calculate_encodings(text: str, tokenizer, max_length):
+    encodings = tokenizer(text, return_tensors="pt")
+
+    if len(encodings.encodings[0].ids) > max_length:
+        # Split the text into three parts:
+        # first half, middle (1/4 to 3/4), second half
+        length = len(text)
+        half = length // 2
+        quarter = length // 4
+        three_quarters = 3 * length // 4
+
+        text1 = text[:half]
+        text2 = text[quarter:three_quarters]
+        text3 = text[half:]
+
+        # Recursively process each chunk
+        encodings1 = recursively_calculate_encodings(text1, tokenizer, max_length)
+        encodings2 = recursively_calculate_encodings(text2, tokenizer, max_length)
+        encodings3 = recursively_calculate_encodings(text3, tokenizer, max_length)
+
+        # Now slice each chunk's encodings as specified:
+        # first: [:3/4]
+        # second: [1/4:3/4]
+        # third: [1/4:]
+        combined = {}
+        for key in encodings1.keys():
+            L1 = encodings1[key].size(1)
+            L2 = encodings2[key].size(1)
+            L3 = encodings3[key].size(1)
+
+            part1 = encodings1[key][:, :int(0.75 * L1)]
+            part2 = encodings2[key][:, int(0.25 * L2):int(0.75 * L2)]
+            part3 = encodings3[key][:, int(0.25 * L3):]
+
+            combined[key] = torch.cat([part1, part2, part3], dim=1)
+
+        encodings = combined
+
+    return encodings
 
 
 # https://github.com/AIAnytime/GPT-Shield-AI-Plagiarism-Detector
