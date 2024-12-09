@@ -217,10 +217,14 @@ def calculate_perplexity(text: str, language_code: str, per_token: Optional[str]
         from config import PERPLEXITY_POLISH_TOKENIZER, PERPLEXITY_POLISH_MODEL
         tokenizer = PERPLEXITY_POLISH_TOKENIZER
         model = PERPLEXITY_POLISH_MODEL
+        if torch.cuda.is_available():
+            model = model.to('cuda')
     elif language_code == "en":
         from config import PERPLEXITY_ENGLISH_TOKENIZER, PERPLEXITY_ENGLISH_MODEL
         tokenizer = PERPLEXITY_ENGLISH_TOKENIZER
         model = PERPLEXITY_ENGLISH_MODEL
+        if torch.cuda.is_available():
+            model = model.to('cuda')
     else:
         raise ValueError("Language code must be either 'pl' or 'en'")
 
