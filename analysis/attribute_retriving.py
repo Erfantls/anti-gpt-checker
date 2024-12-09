@@ -200,7 +200,7 @@ def calculate_perplexity_old(text: str, language_word_probabilities: Dict[str, f
 
 
 def calculate_perplexity(text: str, language_code: str, per_token: Optional[str] = "word",
-                         return_base_ppl: bool = False, return_both: bool = False) -> Union[Optional[float], Tuple[float, float]]:
+                         return_base_ppl: bool = False, return_both: bool = False, force_use_cpu: bool = False) -> Union[Optional[float], Tuple[float, float]]:
     text = replace_links_with_text(text)
     if per_token not in ["word", "char"]:
         raise ValueError("per_token must be either 'word' or 'char'")
@@ -217,13 +217,13 @@ def calculate_perplexity(text: str, language_code: str, per_token: Optional[str]
         from config import PERPLEXITY_POLISH_TOKENIZER, PERPLEXITY_POLISH_MODEL
         tokenizer = PERPLEXITY_POLISH_TOKENIZER
         model = PERPLEXITY_POLISH_MODEL
-        if torch.cuda.is_available():
+        if torch.cuda.is_available() and not force_use_cpu:
             model = model.to('cuda')
     elif language_code == "en":
         from config import PERPLEXITY_ENGLISH_TOKENIZER, PERPLEXITY_ENGLISH_MODEL
         tokenizer = PERPLEXITY_ENGLISH_TOKENIZER
         model = PERPLEXITY_ENGLISH_MODEL
-        if torch.cuda.is_available():
+        if torch.cuda.is_available() and not force_use_cpu:
             model = model.to('cuda')
     else:
         raise ValueError("Language code must be either 'pl' or 'en'")
@@ -239,7 +239,7 @@ def calculate_perplexity(text: str, language_code: str, per_token: Optional[str]
     for begin_loc in range(0, seq_len, stride):
         end_loc = min(begin_loc + max_length, seq_len)
         trg_len = end_loc - prev_end_loc  # may be different from stride on last loop
-        input_ids = encodings.input_ids[:, begin_loc:end_loc].to('cuda' if torch.cuda.is_available() else 'cpu')
+        input_ids = encodings.input_ids[:, begin_loc:end_loc].to('cuda' if (torch.cuda.is_available() and not force_use_cpu) else 'cpu')
         target_ids = input_ids.clone()
         target_ids[:, :-trg_len] = -100
 
