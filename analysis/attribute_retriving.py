@@ -508,9 +508,6 @@ def spelling_and_grammar_check(text: str, lang_code: str) -> Tuple[Dict[str, int
         tool = LANGUAGE_TOOL_EN
     else:
         raise ValueError(f"Language {lang_code} is not supported")
-    # Matches sequences of 4+ dots with optional spaces between them.
-    # This is common in listings at the start of a report.
-    text = re.sub(r'(\s)?\.(?:\s*\.){3,}', '', text)
 
     matches = tool.check(text)
     error_categories = {}
