@@ -200,7 +200,7 @@ def preprocess_text(text: str) -> str:
     text_to_analyse = replace_links_with_text(text_to_analyse, replacement="")
     text_to_analyse = text_to_analyse.replace("\n ", " ")
     text_to_analyse = text_to_analyse.replace("-\n", "")
-    text_to_analyse = text_to_analyse.replace("\n", " ")
+    # text_to_analyse = text_to_analyse.replace("\n", " ")
     text_to_analyse = remove_multiple_dots(text_to_analyse)
     return text_to_analyse
 
@@ -225,18 +225,19 @@ def split_text_on_regex_match(text: str, pattern=ALL_SPLIT_PATTERNS):
     parts = []
     last_end = 0
     for match in list(re.finditer(pattern, text)):
-        if match.start() > last_end:
+        if match.start() > (last_end + 20):
             start_text = text[last_end:match.start()]
             if MINIMAL_SENTENCE_LENGTH < len(start_text.split(" ")) < MAXIMAL_SENTENCE_LENGTH:
-                parts.append(start_text)
+                parts.append(start_text.strip())
 
-        part_to_add = match.group(0) + ' ' + text[match.end():].split(match.group(0), 1)[0].strip()
-        parts.append(part_to_add)
-        last_end = match.end() + len(part_to_add)
+        part_to_add = match.group(0) + ' ' + text[match.end():].split(match.group(0), 1)[0].strip().split('\n')[0].strip()
+        if MINIMAL_SENTENCE_LENGTH < len(part_to_add.split(" ")) < MAXIMAL_SENTENCE_LENGTH:
+            parts.append(part_to_add.strip())
+        last_end = match.start() + len(part_to_add)
 
-    if last_end < len(text):
+    if last_end + 20 < len(text):
         end_text = text[last_end:]
         if MINIMAL_SENTENCE_LENGTH < len(end_text.split(" ")) < MAXIMAL_SENTENCE_LENGTH:
-            parts.append(text[last_end:])
+            parts.append(text[last_end:].strip())
 
     return parts
