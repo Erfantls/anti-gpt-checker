@@ -11,6 +11,8 @@ class AttributeNoDBParameters(BaseModel):
     perplexity: Optional[float]  # V
     perplexity_base: Optional[float]  # V
 
+    sample_word_counts: Optional[dict] # V
+
     burstiness: Optional[float]  # V
     burstiness2: Optional[float]  # V
 
@@ -51,7 +53,7 @@ class AttributeNoDBParameters(BaseModel):
     sentiment_eng: Optional[Dict[str, float]]
 
     def to_flat_dict(self):
-        temp_dict = self.dict(exclude={"referenced_db_name", "is_generated", "is_personal", "referenced_doc_id", "language", "id", "pos_eng_tags", "sentiment_eng", "lemmatized_text"})
+        temp_dict = self.dict(exclude={"referenced_db_name", "is_generated", "is_personal", "referenced_doc_id", "language", "id", "pos_eng_tags", "sentiment_eng", "lemmatized_text", "sample_word_counts"})
         flattened_dict = self._flatten_dict(temp_dict)
         return flattened_dict
 
@@ -69,7 +71,7 @@ class AttributeNoDBParameters(BaseModel):
 
 
     def to_flat_dict_normalized(self, exclude=None):
-        temp_dict = self.dict(exclude={"referenced_db_name", "is_generated", "is_personal", "referenced_doc_id", "language", "id", "pos_eng_tags", "sentiment_eng", "punctuation", "perplexity_base", "lemmatized_text"})
+        temp_dict = self.dict(exclude={"referenced_db_name", "is_generated", "is_personal", "referenced_doc_id", "language", "id", "pos_eng_tags", "sentiment_eng", "punctuation", "perplexity_base", "lemmatized_text", "sample_word_counts"})
         if exclude:
             for key in exclude:
                 if key in temp_dict:

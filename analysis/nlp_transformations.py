@@ -116,9 +116,22 @@ def remove_footers(text: str) -> str:
     return re.sub(r"\w{2}\., \d{1,2} \w{3} \d{4} o \d{2}:\d{2} .+ <.+@.+> napisał(a|\(a\)|):", "", text)
 
 
-def replace_links_with_text(text: str, replacement: str="link") -> str:
+def replace_links_with_text(text: str, replacement: str="LINK") -> str:
     url_pattern = r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+|\bwww\.\S+\.\S+'
     replaced_text = re.sub(url_pattern, replacement, text)
+    return replaced_text
+
+def replace_IP_addresses_with_text(text: str, replacement: str="ADRES INTERNETOWY") -> str:
+    ip_subnet_pattern = re.compile(
+        r'^'
+        r'(25[0-5]|2[0-4]\d|[01]?\d?\d)\.'  # 1st octet
+        r'(25[0-5]|2[0-4]\d|[01]?\d?\d)\.'  # 2nd octet
+        r'(25[0-5]|2[0-4]\d|[01]?\d?\d)\.'  # 3rd octet
+        r'(25[0-5]|2[0-4]\d|[01]?\d?\d)'  # 4th octet
+        r'(?:/(3[0-2]|[12]\d|[1-9]|0))?'  # Optional /CIDR (0–32)
+        r'$'
+    )
+    replaced_text = re.sub(ip_subnet_pattern, replacement, text)
     return replaced_text
 
 
@@ -197,7 +210,8 @@ def preprocess_text(text: str) -> str:
     text_to_analyse = replace_whitespaces(text)
     text_to_analyse = replace_meaningful_report_tags(text_to_analyse)
     text_to_analyse = remove_report_tags(text_to_analyse)
-    text_to_analyse = replace_links_with_text(text_to_analyse, replacement="")
+    text_to_analyse= replace_IP_addresses_with_text(text_to_analyse)
+    text_to_analyse = replace_links_with_text(text_to_analyse, replacement="LINK")
     text_to_analyse = text_to_analyse.replace("\n ", " ")
     text_to_analyse = text_to_analyse.replace("-\n", "")
     # text_to_analyse = text_to_analyse.replace("\n", " ")
@@ -241,3 +255,17 @@ def split_text_on_regex_match(text: str, pattern=ALL_SPLIT_PATTERNS):
             parts.append(text[last_end:].strip())
 
     return parts
+
+def get_text_for_punctuation_analysis(text: str) -> str:
+    file_extensions_pattern = re.compile(r'(\b[\w-]+)((\.\w+)+)')
+    caption_related_punctuation_pattern = r'\b(?:' + '|'.join(re.escape(item) for item in CAPTION_LIKE) + r')\s+\d+[.:]+\s+'
+    numbering_related_punctuation_pattern = r'\d+[.]\d+|\d+[.]|[.]\d+'
+    hidden_files_punctuation_pattern = r'\s+(?:\.\w+)'
+
+    cleaned_text = text
+    cleaned_text = file_extensions_pattern.sub(r'\1', cleaned_text)
+    cleaned_text = re.sub(caption_related_punctuation_pattern, '', cleaned_text)
+    cleaned_text = re.sub(numbering_related_punctuation_pattern, '', cleaned_text)
+    cleaned_text = re.sub(hidden_files_punctuation_pattern, '', cleaned_text)
+
+    return cleaned_text

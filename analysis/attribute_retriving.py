@@ -23,7 +23,7 @@ from textblob import TextBlob
 
 
 from analysis.nlp_transformations import replace_links_with_text, remove_stopwords_punctuation_emojis_and_splittings, \
-    lemmatize_text, split_into_sentences, is_abbreviation
+    lemmatize_text, split_into_sentences, is_abbreviation, get_text_for_punctuation_analysis
 from models.attribute import AttributeNoDBParametersPL, AttributeNoDBParametersEN
 
 from models.stylometrix_metrics import AllStyloMetrixFeaturesEN, AllStyloMetrixFeaturesPL
@@ -553,12 +553,34 @@ def measure_text_features(text: str) -> Dict[str, Optional[int]]:
     return features
 
 
+def count_occurrences(lem_text: str) -> dict:
+    """
+    Receives a lemmatized text and returns a dictionary with
+    the number of occurrences for each word.
+    Ignores punctuation (e.g., "test" and "test." are considered "test").
+    """
+    # Split the text into words by whitespace
+    words = lem_text.split()
+
+    # Dictionary to store occurrences of each word
+    occurrences = {}
+
+    for word in words:
+        # Strip leading and trailing punctuation and convert to lowercase
+        cleaned_word = word.strip(".,!?;:").lower()
+
+        if cleaned_word:  # Ensure we don't count empty strings
+            occurrences[cleaned_word] = occurrences.get(cleaned_word, 0) + 1
+
+    return occurrences
+
+
 def perform_full_analysis(text: str, lang_code: str) -> Union[AttributeNoDBParametersPL, AttributeNoDBParametersEN]:
     perplexity_base, perplexity = None, None #calculate_perplexity(text, lang_code, return_both=True)
 
     lem_text, _ = lemmatize_text(text, lang_code)
     lem_text = lem_text.strip()
-    lemmatized_text = lem_text
+    sample_word_counts = count_occurrences(lem_text)
     burstiness = calculate_burstiness(lem_text, lang_code)
     burstiness2 = calculate_burstiness_as_in_papers(lem_text, lang_code)
 
@@ -581,9 +603,10 @@ def perform_full_analysis(text: str, lang_code: str) -> Union[AttributeNoDBParam
     standard_deviation_sentence_char_length = char_length_distribution[0]
     variance_sentence_char_length = char_length_distribution[1]
 
-    punctuation = len([char for char in text if char in ".,!?;:"])
-    punctuation_density = punctuation / number_of_characters
-    punctuation_per_sentence = punctuation / number_of_sentences
+    text_for_punctuation_analysis = get_text_for_punctuation_analysis(text)
+    punctuation = len([char for char in text_for_punctuation_analysis if char in ".,!?;:"])
+    punctuation_density = punctuation / len(text_for_punctuation_analysis)
+    punctuation_per_sentence = punctuation / len(text_for_punctuation_analysis)
 
     text_features = measure_text_features(text)
     double_spaces = text_features['double_spaces']
@@ -601,6 +624,7 @@ def perform_full_analysis(text: str, lang_code: str) -> Union[AttributeNoDBParam
         pos_eng_tags = count_pos_tags_eng(text)
         sentiment_eng = sentiment_score_eng(text)
         return AttributeNoDBParametersEN(perplexity=perplexity, perplexity_base=perplexity_base,
+                                         sample_word_counts=sample_word_counts,
                                          burstiness=burstiness, burstiness2=burstiness2,
                                          average_sentence_word_length=average_sentence_word_length,
                                          standard_deviation_sentence_word_length=standard_deviation_sentence_word_length,
@@ -619,12 +643,13 @@ def perform_full_analysis(text: str, lang_code: str) -> Union[AttributeNoDBParam
                                          double_question_marks=double_question_marks,
                                          double_exclamation_marks=double_exclamation_marks,
                                          text_errors_by_category=text_errors_by_category, number_of_errors=number_of_errors,
-                                         lemmatized_text=lemmatized_text, pos_eng_tags=pos_eng_tags, sentiment_eng=sentiment_eng,
+                                         lemmatized_text=lem_text, pos_eng_tags=pos_eng_tags, sentiment_eng=sentiment_eng,
                                          stylometrix_metrics=stylometrix_metrics.dict() if stylometrix_metrics is not None else None)
     elif lang_code == "pl":
         pos_eng_tags = None
         sentiment_eng = None
         return AttributeNoDBParametersPL(perplexity=perplexity, perplexity_base=perplexity_base,
+                                         sample_word_counts=sample_word_counts,
                                          burstiness=burstiness, burstiness2=burstiness2,
                                          average_sentence_word_length=average_sentence_word_length,
                                          standard_deviation_sentence_word_length=standard_deviation_sentence_word_length,
@@ -643,7 +668,7 @@ def perform_full_analysis(text: str, lang_code: str) -> Union[AttributeNoDBParam
                                          double_question_marks=double_question_marks,
                                          double_exclamation_marks=double_exclamation_marks,
                                          text_errors_by_category=text_errors_by_category, number_of_errors=number_of_errors,
-                                         lemmatized_text=lemmatized_text, pos_eng_tags=pos_eng_tags, sentiment_eng=sentiment_eng,
+                                         lemmatized_text=lem_text, pos_eng_tags=pos_eng_tags, sentiment_eng=sentiment_eng,
                                          stylometrix_metrics=stylometrix_metrics.dict() if stylometrix_metrics is not None else None)
     else:
         raise ValueError(f"Language {lang_code} is not supported")
