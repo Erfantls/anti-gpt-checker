@@ -6,7 +6,8 @@ import re
 import nltk
 from nltk.corpus import stopwords
 
-from config import RELATIVE_PATH_TO_PROJECT
+from config import RELATIVE_PATH_TO_PROJECT, MINIMAL_SENTENCE_LENGTH, SUSPICIOUS_SENTENCE_LENGTH, \
+    MAXIMAL_SENTENCE_LENGTH
 
 
 def lemmatize_text(text: str, lang_code: str) -> Tuple[str, List[str]]:
@@ -115,9 +116,22 @@ def remove_footers(text: str) -> str:
     return re.sub(r"\w{2}\., \d{1,2} \w{3} \d{4} o \d{2}:\d{2} .+ <.+@.+> napisał(a|\(a\)|):", "", text)
 
 
-def replace_links_with_text(text: str, replacement: str="link") -> str:
+def replace_links_with_text(text: str, replacement: str="LINK") -> str:
     url_pattern = r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+|\bwww\.\S+\.\S+'
     replaced_text = re.sub(url_pattern, replacement, text)
+    return replaced_text
+
+def replace_IP_addresses_with_text(text: str, replacement: str="ADRES INTERNETOWY") -> str:
+    ip_subnet_pattern = re.compile(
+        r'^'
+        r'(25[0-5]|2[0-4]\d|[01]?\d?\d)\.'  # 1st octet
+        r'(25[0-5]|2[0-4]\d|[01]?\d?\d)\.'  # 2nd octet
+        r'(25[0-5]|2[0-4]\d|[01]?\d?\d)\.'  # 3rd octet
+        r'(25[0-5]|2[0-4]\d|[01]?\d?\d)'  # 4th octet
+        r'(?:/(3[0-2]|[12]\d|[1-9]|0))?'  # Optional /CIDR (0–32)
+        r'$'
+    )
+    replaced_text = re.sub(ip_subnet_pattern, replacement, text)
     return replaced_text
 
 
@@ -130,7 +144,12 @@ def split_into_sentences(text: str, lang_code: str) -> List[str]:
         raise ValueError(f"Language {lang_code} is not supported")
 
     sentences = sentence_tokenizer.tokenize(text)
-    return sentences
+    sentences_normal = [sentence for sentence in sentences if (MINIMAL_SENTENCE_LENGTH < len(sentence.split(" ")) <= SUSPICIOUS_SENTENCE_LENGTH)]
+    sentence_split = []
+    for sentence in [sentence for sentence in sentences if (SUSPICIOUS_SENTENCE_LENGTH < len(sentence.split(" ")))]:
+        sentence_split.extend(split_text_on_regex_match(sentence))
+
+    return sentences_normal + sentence_split
 
 def replace_meaningful_report_tags(text: str) -> str:
     # Replace tags with placeholders
@@ -147,7 +166,7 @@ def remove_report_tags(text: str) -> str:
 
 def replace_whitespaces(text: str) -> str:
     # Replace multiple whitespaces with a single whitespace
-    return text.replace('\u200B', " ")
+    return text.replace('\u200B', "")
 
 def is_abbreviation(s: str) -> bool:
     # Optimization: Check if the first character is uppercase
@@ -182,12 +201,71 @@ def is_abbreviation(s: str) -> bool:
 
     return True
 
+def remove_multiple_dots(text: str) -> str:
+    # Matches sequences of 4+ dots with optional spaces between them.
+    # This is common in listings at the start of a report.
+    return re.sub(r'(\s)?\.(?:\s*\.){3,}', '', text)
+
 def preprocess_text(text: str) -> str:
-    text_to_analyse = replace_meaningful_report_tags(text)
+    text_to_analyse = replace_whitespaces(text)
+    text_to_analyse = replace_meaningful_report_tags(text_to_analyse)
     text_to_analyse = remove_report_tags(text_to_analyse)
-    text_to_analyse = replace_whitespaces(text_to_analyse)
-    text_to_analyse = replace_links_with_text(text_to_analyse, replacement="")
+    text_to_analyse= replace_IP_addresses_with_text(text_to_analyse)
+    text_to_analyse = replace_links_with_text(text_to_analyse, replacement="LINK")
     text_to_analyse = text_to_analyse.replace("\n ", " ")
     text_to_analyse = text_to_analyse.replace("-\n", "")
-    text_to_analyse = text_to_analyse.replace("\n", " ")
+    # text_to_analyse = text_to_analyse.replace("\n", " ")
+    text_to_analyse = remove_multiple_dots(text_to_analyse)
     return text_to_analyse
+
+POLISH_CHARS = r'[A-ząęóżźćńłśĄĘÓŹŻĆŃŁŚ]' # tu tylko testowałem czy są linie bez tekstu żadnego (były chyba nawet >10 charow jakie formułki matematyczne np.: "1/9  ≈ 0,(1), 0,077983 ≅ 0,1.")
+
+CAPTION_LIKE = ['Zdj.', 'Wyc.', 'SS.', 'Dz.U.', 'Ad.', 'Wg.', 'Rys.', 'Rysunek', 'Zdjęcie', 'Zadanie', 'Część', 'Grafika', 'Schemat', 'Rys', 'Zrzut', 'Obrazek', 'Tabela', 'Wydruk', 'Tab']
+
+CAPTION_ONLY_PATTERN = r'^(?i)(?:' + '|'.join(re.escape(item) for item in CAPTION_LIKE) + r')((\s*\d+)|(\s*\d+\.))*$' # to do łapania krótkich linijek tylko; np Rysunek 8. (...)
+
+CAPTION_TEXT_PATTERN = r'(?:' + '|'.join(re.escape(item) for item in CAPTION_LIKE) + r')' # to używałem do krojenia
+
+ITEMIZE_PATTERN  = r"(?:^|\s)\s*([\*\-\•\u2022\u2013\u2014])\s+"
+
+ROMAN_NUMERALS_PATTERN = r"^[IVXLCDM]+\.?$" # to do łapania numeracji sekcji cyframi rzymskimi pisane; btw są też itemizey robione cyframi rzymskimi xD i) ii) iii) iv) itd
+
+LAW_RELATED_PATTERN = r'^\d+\s([A-ząęóżźćńłśĄĘÓŹŻĆŃŁŚ]+\.)+[A-ząęóżźćńłśĄĘÓŹŻĆŃŁŚ]?\.?$' # to do krótkich linii z tymi śmiesznymi skórtami prawnymi
+
+ALL_SPLIT_PATTERNS = re.compile(f"({CAPTION_TEXT_PATTERN}|{ITEMIZE_PATTERN}|{ROMAN_NUMERALS_PATTERN})")
+
+
+def split_text_on_regex_match(text: str, pattern=ALL_SPLIT_PATTERNS):
+    parts = []
+    last_end = 0
+    for match in list(re.finditer(pattern, text)):
+        if match.start() > (last_end + 20):
+            start_text = text[last_end:match.start()]
+            if MINIMAL_SENTENCE_LENGTH < len(start_text.split(" ")) < MAXIMAL_SENTENCE_LENGTH:
+                parts.append(start_text.strip())
+
+        part_to_add = match.group(0) + ' ' + text[match.end():].split(match.group(0), 1)[0].strip().split('\n')[0].strip()
+        if MINIMAL_SENTENCE_LENGTH < len(part_to_add.split(" ")) < MAXIMAL_SENTENCE_LENGTH:
+            parts.append(part_to_add.strip())
+        last_end = match.start() + len(part_to_add)
+
+    if last_end + 20 < len(text):
+        end_text = text[last_end:]
+        if MINIMAL_SENTENCE_LENGTH < len(end_text.split(" ")) < MAXIMAL_SENTENCE_LENGTH:
+            parts.append(text[last_end:].strip())
+
+    return parts
+
+def get_text_for_punctuation_analysis(text: str) -> str:
+    file_extensions_pattern = re.compile(r'(\b[\w-]+)((\.\w+)+)')
+    caption_related_punctuation_pattern = r'\b(?:' + '|'.join(re.escape(item) for item in CAPTION_LIKE) + r')\s+\d+[.:]+\s+'
+    numbering_related_punctuation_pattern = r'\d+[.]\d+|\d+[.]|[.]\d+'
+    hidden_files_punctuation_pattern = r'\s+(?:\.\w+)'
+
+    cleaned_text = text
+    cleaned_text = file_extensions_pattern.sub(r'\1', cleaned_text)
+    cleaned_text = re.sub(caption_related_punctuation_pattern, '', cleaned_text)
+    cleaned_text = re.sub(numbering_related_punctuation_pattern, '', cleaned_text)
+    cleaned_text = re.sub(hidden_files_punctuation_pattern, '', cleaned_text)
+
+    return cleaned_text

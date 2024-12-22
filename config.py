@@ -10,11 +10,17 @@ from transformers import GPT2LMHeadModel, GPT2TokenizerFast, AutoTokenizer, Auto
 import language_tool_python
 
 load_dotenv()
-nltk.download('stopwords')
-nltk.download('punkt')
-nltk.download('pl196x')
-nltk.download('wordnet')
-nltk.download('punkt_tab')
+
+def init_nltk():
+    nltk.download('stopwords')
+    nltk.download('punkt')
+    nltk.download('pl196x')
+    nltk.download('wordnet')
+    nltk.download('punkt_tab')
+
+MINIMAL_SENTENCE_LENGTH = int(os.getenv("MINIMAL_SENTENCE_LENGTH", 3))
+SUSPICIOUS_SENTENCE_LENGTH = int(os.getenv("SUSPICIOUS_SENTENCE_LENGTH", 25))
+MAXIMAL_SENTENCE_LENGTH = int(os.getenv("MAXIMAL_SENTENCE_LENGTH", 150))
 
 MONGODB_URI = os.getenv("MONGODB_URI")
 MONGODB_PORT = int(os.getenv("MONGODB_PORT"))
