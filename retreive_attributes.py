@@ -1,5 +1,5 @@
 from config import init_polish_perplexity_model, init_spacy_polish_nlp_model, init_language_tool_pl, \
-    init_language_tool_en
+    init_language_tool_en, init_nltk
 
 from typing import List
 from tqdm import tqdm
@@ -16,6 +16,7 @@ from services.utils import suppress_stdout
 
 if __name__ == "__main__":
     #init_polish_perplexity_model()
+    init_nltk()
     init_spacy_polish_nlp_model()
     init_language_tool_pl()
     init_language_tool_en()
