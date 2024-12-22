@@ -575,8 +575,11 @@ def count_occurrences(lem_text: str) -> dict:
     return occurrences
 
 
-def perform_full_analysis(text: str, lang_code: str) -> Union[AttributeNoDBParametersPL, AttributeNoDBParametersEN]:
-    perplexity_base, perplexity = None, None #calculate_perplexity(text, lang_code, return_both=True)
+def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool = True, skip_stylometrix_calc: bool = False) -> Union[AttributeNoDBParametersPL, AttributeNoDBParametersEN]:
+    if skip_perplexity_calc:
+        perplexity_base, perplexity = None, None
+    else:
+        calculate_perplexity(text, lang_code, return_both=True)
 
     lem_text, _ = lemmatize_text(text, lang_code)
     lem_text = lem_text.strip()
@@ -617,7 +620,10 @@ def perform_full_analysis(text: str, lang_code: str) -> Union[AttributeNoDBParam
     double_question_marks = text_features['double_question_marks']
     double_exclamation_marks = text_features['double_exclamation_marks']
     text_errors_by_category, number_of_errors = spelling_and_grammar_check(text, lang_code)
-    stylometrix_metrics = stylo_metrix_analysis([text], lang_code)[0]
+    if skip_stylometrix_calc:
+        stylometrix_metrics = None
+    else:
+        stylometrix_metrics = stylo_metrix_analysis([text], lang_code)[0]
 
 
     if lang_code == "en":
