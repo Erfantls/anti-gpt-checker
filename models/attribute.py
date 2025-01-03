@@ -93,9 +93,7 @@ class AttributeNoDBParameters(BaseModel):
                 flattened_dict[key] = 0
             elif key.startswith("text_errors_by_category."):
                 flattened_dict[key] = float(flattened_dict[key])/self.number_of_characters if flattened_dict[key] is not None else 0
-
-            elif key.startswith("stylometrix_metrics.") and not key.startswith("stylometrix_metrics.statistics."):
-                flattened_dict[key] = float(flattened_dict[key])/self.number_of_characters
+            # normalization of stylometrix features is not needed as they are already normalized
 
         if exclude:
             for key in exclude:
