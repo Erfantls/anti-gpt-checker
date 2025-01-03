@@ -609,7 +609,7 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
     text_for_punctuation_analysis = get_text_for_punctuation_analysis(text)
     punctuation = len([char for char in text_for_punctuation_analysis if char in ".,!?;:"])
     punctuation_density = punctuation / len(text_for_punctuation_analysis)
-    punctuation_per_sentence = punctuation / len(text_for_punctuation_analysis)
+    punctuation_per_sentence = punctuation / number_of_sentences
 
     text_features = measure_text_features(text)
     double_spaces = text_features['double_spaces']
