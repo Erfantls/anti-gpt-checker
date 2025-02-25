@@ -52,6 +52,10 @@ class AttributeNoDBParameters(BaseModel):
     pos_eng_tags: Optional[Dict[str, int]]
     sentiment_eng: Optional[Dict[str, float]]
 
+    number_of_unrecognized_words_lang_tool: Optional[int]
+    number_of_abbreviations_lang_tool: Optional[int]
+    number_of_unrecognized_words_dict_check: Optional[int]
+
     def to_flat_dict(self):
         temp_dict = self.dict(exclude={"referenced_db_name", "is_generated", "is_personal", "referenced_doc_id", "language", "id", "pos_eng_tags", "sentiment_eng", "lemmatized_text", "sample_word_counts"})
         flattened_dict = self._flatten_dict(temp_dict)
@@ -85,6 +89,9 @@ class AttributeNoDBParameters(BaseModel):
         flattened_dict['double_question_marks'] = self.double_question_marks/self.number_of_characters if self.double_question_marks is not None else 0
         flattened_dict['double_exclamation_marks'] = self.double_exclamation_marks/self.number_of_characters if self.double_exclamation_marks is not None else 0
         flattened_dict['number_of_errors'] = self.number_of_errors/self.number_of_characters if self.number_of_errors is not None else 0
+        flattened_dict['number_of_unrecognized_words_lang_tool'] = self.number_of_unrecognized_words_lang_tool / self.number_of_words if self.number_of_unrecognized_words_lang_tool is not None else 0
+        flattened_dict['number_of_abbreviations_lang_tool'] = self.number_of_abbreviations_lang_tool / self.number_of_words if self.number_of_abbreviations_lang_tool is not None else 0
+        flattened_dict['number_of_unrecognized_words_dict_check'] = self.number_of_unrecognized_words_dict_check / self.number_of_words if self.number_of_unrecognized_words_dict_check is not None else 0
 
         for key in flattened_dict:
             if flattened_dict[key] is None:
