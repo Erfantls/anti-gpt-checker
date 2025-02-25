@@ -1,5 +1,6 @@
 import string
 import re
+import torch
 import math
 from typing import Dict, List, Union, Optional, Tuple
 
@@ -282,13 +283,6 @@ def calculate_perplexity(text: str, language_code: str, per_token: Optional[str]
     return ppl
 
 
-import torch
-import warnings
-
-
-import torch
-import warnings
-
 def recursively_calculate_encodings(text: str, tokenizer, max_length):
     encodings = tokenizer(text, return_tensors="pt")
 
@@ -543,6 +537,16 @@ def spelling_and_grammar_check(text: str, lang_code: str) -> Tuple[Dict[str, int
     return error_categories, len(matches) - number_of_skipped_errors, number_of_abbreviations, number_of_unrecognized_words
 
 
+def dictionary_check(text: str) -> int:
+    from config import WORD_SET
+    words = re.findall(r'\w+', text.lower())
+
+    # Count each occurrence of a word that is not in the dictionary.
+    number_of_unrecognized_words = sum(1 for word in words if word not in WORD_SET)
+    return number_of_unrecognized_words
+
+
+
 def measure_text_features(text: str) -> Dict[str, Optional[int]]:
     features = {
         'double_spaces': len(re.findall(r'\s{2,}', text)),
@@ -625,6 +629,7 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
     double_question_marks = text_features['double_question_marks']
     double_exclamation_marks = text_features['double_exclamation_marks']
     text_errors_by_category, number_of_errors, number_of_abbreviations, number_of_unrecognized_words = spelling_and_grammar_check(text, lang_code)
+    number_of_unrecognized_words_dict_check = dictionary_check(text)
     if skip_stylometrix_calc:
         stylometrix_metrics = None
     else:
@@ -655,6 +660,9 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
                                          double_exclamation_marks=double_exclamation_marks,
                                          text_errors_by_category=text_errors_by_category, number_of_errors=number_of_errors,
                                          lemmatized_text=lem_text, pos_eng_tags=pos_eng_tags, sentiment_eng=sentiment_eng,
+                                         number_of_unrecognized_words_lang_tool=number_of_unrecognized_words,
+                                         number_of_abbreviations_lang_tool=number_of_abbreviations,
+                                         number_of_unrecognized_words_dict_check=number_of_unrecognized_words_dict_check,
                                          stylometrix_metrics=stylometrix_metrics.dict() if stylometrix_metrics is not None else None)
     elif lang_code == "pl":
         pos_eng_tags = None
@@ -680,6 +688,9 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
                                          double_exclamation_marks=double_exclamation_marks,
                                          text_errors_by_category=text_errors_by_category, number_of_errors=number_of_errors,
                                          lemmatized_text=lem_text, pos_eng_tags=pos_eng_tags, sentiment_eng=sentiment_eng,
+                                         number_of_unrecognized_words_lang_tool=number_of_unrecognized_words,
+                                         number_of_abbreviations_lang_tool=number_of_abbreviations,
+                                         number_of_unrecognized_words_dict_check=number_of_unrecognized_words_dict_check,
                                          stylometrix_metrics=stylometrix_metrics.dict() if stylometrix_metrics is not None else None)
     else:
         raise ValueError(f"Language {lang_code} is not supported")

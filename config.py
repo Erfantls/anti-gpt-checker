@@ -107,6 +107,27 @@ def init_english_perplexity_model(model_name: str = PERPLEXITY_ENGLISH_GPT2_MODE
 
 RELATIVE_PATH_TO_PROJECT = os.getenv("RELATIVE_PATH_TO_PROJECT")
 
+DICT_FILE_1GRAMS_PATH = os.getenv("DICT_FILE_1GRAMS_PATH")
+DICT_FILE_ODM_PATH = os.getenv("DICT_FILE_ODM_PATH")
+WORD_SET = None
+def load_dictionaries():
+    global WORD_SET
+    WORD_SET = set()
+    with open(DICT_FILE_1GRAMS_PATH, "r", encoding="utf-8") as f1:
+        for line in f1:
+            parts = line.strip().split(maxsplit=1)
+            if len(parts) == 2:
+                if parts[1]:
+                    WORD_SET.add(parts[1])
+            else:
+                # If there's any malformed line, skip it
+                continue
 
-
-
+    # Load second file (comma-separated words per line)
+    with open(DICT_FILE_ODM_PATH, "r", encoding="utf-8") as f2:
+        for line in f2:
+            # Split by comma and strip each word
+            parts = [w.strip() for w in line.split(",")]
+            for word in parts:
+                if word:
+                    WORD_SET.add(word)
