@@ -497,7 +497,7 @@ def detect_language_by_voting(text):
     return most_common_language
 
 
-def spelling_and_grammar_check(text: str, lang_code: str) -> Tuple[Dict[str, int], int]:
+def spelling_and_grammar_check(text: str, lang_code: str) -> Tuple[Dict[str, int], int, int, int]:
     if lang_code == "pl":
         from config import LANGUAGE_TOOL_PL
         tool = LANGUAGE_TOOL_PL
@@ -514,6 +514,8 @@ def spelling_and_grammar_check(text: str, lang_code: str) -> Tuple[Dict[str, int
 
     # Categorize and count errors
     number_of_skipped_errors = 0
+    number_of_abbreviations = 0
+    number_of_unrecognized_words = 0
     for match in matches:
         category = match.category
         if category == 'TYPOS':
@@ -521,21 +523,24 @@ def spelling_and_grammar_check(text: str, lang_code: str) -> Tuple[Dict[str, int
             if is_abbreviation(error_text):
                 # ignore this error
                 number_of_skipped_errors += 1
+                number_of_abbreviations += 1
                 continue
             if lang_code == 'pl': # check if maybe the matched text is in english
                 matches_en = tool_en.check(error_text)
                 if len(matches_en) == 0:
                     number_of_skipped_errors += 1
+                    number_of_unrecognized_words += 1
                     continue
             if len(match.replacements) == 0: # assume that this is a proper noun
                 number_of_skipped_errors += 1
+                number_of_unrecognized_words += 1
                 continue
         if category in error_categories:
             error_categories[category] += 1
         else:
             error_categories[category] = 1
 
-    return error_categories, len(matches) - number_of_skipped_errors
+    return error_categories, len(matches) - number_of_skipped_errors, number_of_abbreviations, number_of_unrecognized_words
 
 
 def measure_text_features(text: str) -> Dict[str, Optional[int]]:
@@ -619,7 +624,7 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
     exclamation_marks = text_features['exclamation_marks']
     double_question_marks = text_features['double_question_marks']
     double_exclamation_marks = text_features['double_exclamation_marks']
-    text_errors_by_category, number_of_errors = spelling_and_grammar_check(text, lang_code)
+    text_errors_by_category, number_of_errors, number_of_abbreviations, number_of_unrecognized_words = spelling_and_grammar_check(text, lang_code)
     if skip_stylometrix_calc:
         stylometrix_metrics = None
     else:
