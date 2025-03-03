@@ -588,7 +588,7 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
     if skip_perplexity_calc:
         perplexity_base, perplexity = None, None
     else:
-        calculate_perplexity(text, lang_code, return_both=True)
+        perplexity_base, perplexity = calculate_perplexity(text, lang_code, return_both=True)
 
     lem_text, _ = lemmatize_text(text, lang_code)
     lem_text = lem_text.strip()
