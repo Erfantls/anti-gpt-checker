@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from models.base_mongo_model import MongoObjectId, MongoDBModel
 from models.stylometrix_metrics import AllStyloMetrixFeaturesEN, AllStyloMetrixFeaturesPL
 from models.text_errors import TextErrors
+from models.combination_features import CombinationFeatures
 
 class AttributeNoDBParameters(BaseModel):
     perplexity: Optional[float]  # V
@@ -55,6 +56,8 @@ class AttributeNoDBParameters(BaseModel):
     number_of_unrecognized_words_lang_tool: Optional[int]
     number_of_abbreviations_lang_tool: Optional[int]
     number_of_unrecognized_words_dict_check: Optional[int]
+
+    combination_features: Optional[CombinationFeatures]
 
     def to_flat_dict(self):
         temp_dict = self.dict(exclude={"referenced_db_name", "is_generated", "is_personal", "referenced_doc_id", "language", "id", "pos_eng_tags", "sentiment_eng", "lemmatized_text", "sample_word_counts"})
@@ -114,6 +117,7 @@ class AttributeNoDBParametersPL(AttributeNoDBParameters):
 
 class AttributeNoDBParametersEN(AttributeNoDBParameters):
     stylometrix_metrics: Optional[AllStyloMetrixFeaturesEN]
+
 class AttributeBase(AttributeNoDBParameters):
     referenced_db_name: str #V
     referenced_doc_id: MongoObjectId #V

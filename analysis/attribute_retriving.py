@@ -26,6 +26,7 @@ from textblob import TextBlob
 from analysis.nlp_transformations import replace_links_with_text, remove_stopwords_punctuation_emojis_and_splittings, \
     lemmatize_text, split_into_sentences, is_abbreviation, get_text_for_punctuation_analysis
 from models.attribute import AttributeNoDBParametersPL, AttributeNoDBParametersEN
+from models.combination_features import CombinationFeatures
 
 from models.stylometrix_metrics import AllStyloMetrixFeaturesEN, AllStyloMetrixFeaturesPL
 import html2text
@@ -632,9 +633,10 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
     number_of_unrecognized_words_dict_check = dictionary_check(text)
     if skip_stylometrix_calc:
         stylometrix_metrics = None
+        combination_features = None
     else:
         stylometrix_metrics = stylo_metrix_analysis([text], lang_code)[0]
-
+        combination_features = CombinationFeatures.init_from_stylometrix(stylometrix_metrics)
 
     if lang_code == "en":
         pos_eng_tags = count_pos_tags_eng(text)
@@ -663,7 +665,8 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
                                          number_of_unrecognized_words_lang_tool=number_of_unrecognized_words,
                                          number_of_abbreviations_lang_tool=number_of_abbreviations,
                                          number_of_unrecognized_words_dict_check=number_of_unrecognized_words_dict_check,
-                                         stylometrix_metrics=stylometrix_metrics.dict() if stylometrix_metrics is not None else None)
+                                         stylometrix_metrics=stylometrix_metrics.dict() if stylometrix_metrics is not None else None,
+                                         combination_features=combination_features)
     elif lang_code == "pl":
         pos_eng_tags = None
         sentiment_eng = None
@@ -691,7 +694,8 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
                                          number_of_unrecognized_words_lang_tool=number_of_unrecognized_words,
                                          number_of_abbreviations_lang_tool=number_of_abbreviations,
                                          number_of_unrecognized_words_dict_check=number_of_unrecognized_words_dict_check,
-                                         stylometrix_metrics=stylometrix_metrics.dict() if stylometrix_metrics is not None else None)
+                                         stylometrix_metrics=stylometrix_metrics.dict() if stylometrix_metrics is not None else None,
+                                         combination_features=combination_features)
     else:
         raise ValueError(f"Language {lang_code} is not supported")
 
