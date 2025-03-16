@@ -1,6 +1,9 @@
-from typing import Dict, Optional, Union
+from __future__ import annotations
+
+from typing import Dict, Optional, Union, List
 import math
 
+from aiohttp.helpers import validate_etag_value
 from pydantic import BaseModel
 
 from models.base_mongo_model import MongoObjectId, MongoDBModel
@@ -59,21 +62,28 @@ class AttributeNoDBParameters(BaseModel):
 
     combination_features: Optional[CombinationFeatures]
 
+    partial_attributes: Optional[List[PartialAttributePL | PartialAttributeEN]]
+
     def to_flat_dict(self):
         temp_dict = self.dict(exclude={"referenced_db_name", "is_generated", "is_personal", "referenced_doc_id", "language", "id", "pos_eng_tags", "sentiment_eng", "lemmatized_text", "sample_word_counts"})
         flattened_dict = self._flatten_dict(temp_dict)
         return flattened_dict
 
-    def _flatten_dict(self, d, parent_key='', sep='.'):
+    def _flatten_dict(self, d: dict, parent_key: str='', sep: str='.', skip_lists: bool = False):
         items = []
-        for k, v in d.items():
-            new_key = parent_key + sep + k if parent_key else k
-            if isinstance(v, str):
+        for key, value in d.items():
+            new_key = parent_key + sep + key if parent_key else key
+            if isinstance(value, str):
                 continue
-            if isinstance(v, dict):
-                items.extend(self._flatten_dict(v, new_key, sep=sep).items())
+            if isinstance(value, dict):
+                items.extend(self._flatten_dict(value, new_key, sep=sep).items())
+            elif isinstance(value, list):
+                if skip_lists:
+                    continue
+                for index, item in enumerate(value):
+                    items.extend(self._flatten_dict(item.dict(), f"{new_key}.{index}", sep=sep).items())
             else:
-                items.append((new_key, v))
+                items.append((new_key, value))
         return dict(items)
 
 
@@ -83,7 +93,7 @@ class AttributeNoDBParameters(BaseModel):
             for key in exclude:
                 if key in temp_dict:
                     temp_dict.pop(key)
-        flattened_dict = self._flatten_dict(temp_dict)
+        flattened_dict = self._flatten_dict(temp_dict, skip_lists=True)
         flattened_dict['double_spaces'] = self.double_spaces/self.number_of_characters if self.double_spaces is not None else 0
         flattened_dict['no_space_after_punctuation'] = self.no_space_after_punctuation/self.number_of_characters if self.no_space_after_punctuation is not None else 0
         flattened_dict['emojis'] = self.emojis/self.number_of_characters if self.emojis is not None else 0
@@ -104,6 +114,12 @@ class AttributeNoDBParameters(BaseModel):
             elif key.startswith("text_errors_by_category."):
                 flattened_dict[key] = float(flattened_dict[key])/self.number_of_characters if flattened_dict[key] is not None else 0
             # normalization of stylometrix features is not needed as they are already normalized
+
+        for partial_attribute in self.partial_attributes:
+            flattened_partial_attribute_dict = partial_attribute.attribute.to_flat_dict_normalized()
+            flattened_partial_attribute_key = f"partial_attributes.{partial_attribute.index}."
+            for key, value in flattened_partial_attribute_dict.items():
+                flattened_dict[flattened_partial_attribute_key+key] = value
 
         if exclude:
             for key in exclude:
@@ -136,3 +152,13 @@ class AttributeENInDB(MongoDBModel, AttributeEN):
     pass
 
 AttributeInDB = Union[AttributePLInDB, AttributeENInDB]
+
+class PartialAttributePL(BaseModel):
+    index: int
+    partial_text: str
+    attribute: AttributeNoDBParametersPL
+
+class PartialAttributeEN(BaseModel):
+    index: int
+    partial_text: str
+    attribute: AttributeNoDBParametersEN
