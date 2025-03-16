@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Dict, Optional, Union, List
 import math
 
-from aiohttp.helpers import validate_etag_value
 from pydantic import BaseModel
 
 from models.base_mongo_model import MongoObjectId, MongoDBModel
@@ -11,11 +10,12 @@ from models.stylometrix_metrics import AllStyloMetrixFeaturesEN, AllStyloMetrixF
 from models.text_errors import TextErrors
 from models.combination_features import CombinationFeatures
 
+
 class AttributeNoDBParameters(BaseModel):
     perplexity: Optional[float]  # V
     perplexity_base: Optional[float]  # V
 
-    sample_word_counts: Optional[dict] # V
+    sample_word_counts: Optional[dict]  # V
 
     burstiness: Optional[float]  # V
     burstiness2: Optional[float]  # V
@@ -62,14 +62,16 @@ class AttributeNoDBParameters(BaseModel):
 
     combination_features: Optional[CombinationFeatures]
 
-    partial_attributes: Optional[List[PartialAttributePL | PartialAttributeEN]]
+    partial_attributes: Optional[List[PartialAttribute]]
 
     def to_flat_dict(self):
-        temp_dict = self.dict(exclude={"referenced_db_name", "is_generated", "is_personal", "referenced_doc_id", "language", "id", "pos_eng_tags", "sentiment_eng", "lemmatized_text", "sample_word_counts"})
+        temp_dict = self.dict(
+            exclude={"referenced_db_name", "is_generated", "is_personal", "referenced_doc_id", "language", "id",
+                     "pos_eng_tags", "sentiment_eng", "lemmatized_text", "sample_word_counts"})
         flattened_dict = self._flatten_dict(temp_dict)
         return flattened_dict
 
-    def _flatten_dict(self, d: dict, parent_key: str='', sep: str='.', skip_lists: bool = False):
+    def _flatten_dict(self, d: dict, parent_key: str = '', sep: str = '.', skip_lists: bool = False):
         items = []
         for key, value in d.items():
             new_key = parent_key + sep + key if parent_key else key
@@ -86,25 +88,37 @@ class AttributeNoDBParameters(BaseModel):
                 items.append((new_key, value))
         return dict(items)
 
-
     def to_flat_dict_normalized(self, exclude=None):
-        temp_dict = self.dict(exclude={"referenced_db_name", "is_generated", "is_personal", "referenced_doc_id", "language", "id", "pos_eng_tags", "sentiment_eng", "punctuation", "perplexity_base", "lemmatized_text", "sample_word_counts"})
+        temp_dict = self.dict(
+            exclude={"referenced_db_name", "is_generated", "is_personal", "referenced_doc_id", "language", "id",
+                     "pos_eng_tags", "sentiment_eng", "punctuation", "perplexity_base", "lemmatized_text",
+                     "sample_word_counts"})
         if exclude:
             for key in exclude:
                 if key in temp_dict:
                     temp_dict.pop(key)
         flattened_dict = self._flatten_dict(temp_dict, skip_lists=True)
-        flattened_dict['double_spaces'] = self.double_spaces/self.number_of_characters if self.double_spaces is not None else 0
-        flattened_dict['no_space_after_punctuation'] = self.no_space_after_punctuation/self.number_of_characters if self.no_space_after_punctuation is not None else 0
-        flattened_dict['emojis'] = self.emojis/self.number_of_characters if self.emojis is not None else 0
-        flattened_dict['question_marks'] = self.question_marks/self.number_of_characters if self.question_marks is not None else 0
-        flattened_dict['exclamation_marks'] = self.exclamation_marks/self.number_of_characters if self.exclamation_marks is not None else 0
-        flattened_dict['double_question_marks'] = self.double_question_marks/self.number_of_characters if self.double_question_marks is not None else 0
-        flattened_dict['double_exclamation_marks'] = self.double_exclamation_marks/self.number_of_characters if self.double_exclamation_marks is not None else 0
-        flattened_dict['number_of_errors'] = self.number_of_errors/self.number_of_characters if self.number_of_errors is not None else 0
-        flattened_dict['number_of_unrecognized_words_lang_tool'] = self.number_of_unrecognized_words_lang_tool / self.number_of_words if self.number_of_unrecognized_words_lang_tool is not None else 0
-        flattened_dict['number_of_abbreviations_lang_tool'] = self.number_of_abbreviations_lang_tool / self.number_of_words if self.number_of_abbreviations_lang_tool is not None else 0
-        flattened_dict['number_of_unrecognized_words_dict_check'] = self.number_of_unrecognized_words_dict_check / self.number_of_words if self.number_of_unrecognized_words_dict_check is not None else 0
+        flattened_dict[
+            'double_spaces'] = self.double_spaces / self.number_of_characters if self.double_spaces is not None else 0
+        flattened_dict[
+            'no_space_after_punctuation'] = self.no_space_after_punctuation / self.number_of_characters if self.no_space_after_punctuation is not None else 0
+        flattened_dict['emojis'] = self.emojis / self.number_of_characters if self.emojis is not None else 0
+        flattened_dict[
+            'question_marks'] = self.question_marks / self.number_of_characters if self.question_marks is not None else 0
+        flattened_dict[
+            'exclamation_marks'] = self.exclamation_marks / self.number_of_characters if self.exclamation_marks is not None else 0
+        flattened_dict[
+            'double_question_marks'] = self.double_question_marks / self.number_of_characters if self.double_question_marks is not None else 0
+        flattened_dict[
+            'double_exclamation_marks'] = self.double_exclamation_marks / self.number_of_characters if self.double_exclamation_marks is not None else 0
+        flattened_dict[
+            'number_of_errors'] = self.number_of_errors / self.number_of_characters if self.number_of_errors is not None else 0
+        flattened_dict[
+            'number_of_unrecognized_words_lang_tool'] = self.number_of_unrecognized_words_lang_tool / self.number_of_words if self.number_of_unrecognized_words_lang_tool is not None else 0
+        flattened_dict[
+            'number_of_abbreviations_lang_tool'] = self.number_of_abbreviations_lang_tool / self.number_of_words if self.number_of_abbreviations_lang_tool is not None else 0
+        flattened_dict[
+            'number_of_unrecognized_words_dict_check'] = self.number_of_unrecognized_words_dict_check / self.number_of_words if self.number_of_unrecognized_words_dict_check is not None else 0
 
         for key in flattened_dict:
             if flattened_dict[key] is None:
@@ -112,14 +126,15 @@ class AttributeNoDBParameters(BaseModel):
             elif math.isnan(flattened_dict[key]):
                 flattened_dict[key] = 0
             elif key.startswith("text_errors_by_category."):
-                flattened_dict[key] = float(flattened_dict[key])/self.number_of_characters if flattened_dict[key] is not None else 0
+                flattened_dict[key] = float(flattened_dict[key]) / self.number_of_characters if flattened_dict[
+                                                                                                    key] is not None else 0
             # normalization of stylometrix features is not needed as they are already normalized
 
         for partial_attribute in self.partial_attributes:
             flattened_partial_attribute_dict = partial_attribute.attribute.to_flat_dict_normalized()
             flattened_partial_attribute_key = f"partial_attributes.{partial_attribute.index}."
             for key, value in flattened_partial_attribute_dict.items():
-                flattened_dict[flattened_partial_attribute_key+key] = value
+                flattened_dict[flattened_partial_attribute_key + key] = value
 
         if exclude:
             for key in exclude:
@@ -128,37 +143,52 @@ class AttributeNoDBParameters(BaseModel):
 
         return flattened_dict
 
+
 class AttributeNoDBParametersPL(AttributeNoDBParameters):
     stylometrix_metrics: Optional[AllStyloMetrixFeaturesPL]
+
 
 class AttributeNoDBParametersEN(AttributeNoDBParameters):
     stylometrix_metrics: Optional[AllStyloMetrixFeaturesEN]
 
+
 class AttributeBase(AttributeNoDBParameters):
-    referenced_db_name: str #V
-    referenced_doc_id: MongoObjectId #V
-    language: Optional[str] #V
-    is_generated: Optional[bool] #V
-    is_personal: Optional[bool] #V
+    referenced_db_name: str  # V
+    referenced_doc_id: MongoObjectId  # V
+    language: Optional[str]  # V
+    is_generated: Optional[bool]  # V
+    is_personal: Optional[bool]  # V
+
 
 class AttributePL(AttributeBase):
     stylometrix_metrics: Optional[AllStyloMetrixFeaturesPL]
 
+
 class AttributeEN(AttributeBase):
     stylometrix_metrics: Optional[AllStyloMetrixFeaturesEN]
+
+
 class AttributePLInDB(MongoDBModel, AttributePL):
     pass
+
+
 class AttributeENInDB(MongoDBModel, AttributeEN):
     pass
 
+
 AttributeInDB = Union[AttributePLInDB, AttributeENInDB]
+
 
 class PartialAttributePL(BaseModel):
     index: int
     partial_text: str
     attribute: AttributeNoDBParametersPL
 
+
 class PartialAttributeEN(BaseModel):
     index: int
     partial_text: str
     attribute: AttributeNoDBParametersEN
+
+
+PartialAttribute = Union[PartialAttributePL, PartialAttributeEN]
