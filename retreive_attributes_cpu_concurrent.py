@@ -1,5 +1,5 @@
 from config import init_polish_perplexity_model, init_spacy_polish_nlp_model, init_language_tool_pl, \
-    init_language_tool_en, init_nltk
+    init_language_tool_en, init_nltk, load_dictionaries
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
@@ -21,13 +21,11 @@ def process_file(report: LabReportInDB, is_generated: bool):
     with suppress_stdout():
         analysis_result = perform_full_analysis(
             text=text_to_analyse,
-            lang_code='pl',
-            skip_perplexity_calc=True,
-            skip_stylometrix_calc=True
+            lang_code='pl'
         )
 
     attribute_to_insert = AttributePL(
-        referenced_db_name='lab_reports',
+        referenced_db_name='lab_reports-no_toc_biblio_11-03-25',
         referenced_doc_id=report.id,
         language="pl",
         is_generated=is_generated,
@@ -70,12 +68,13 @@ def process(report_db: str, attributes_db: str):
 
 
 if __name__ == "__main__":
+    init_polish_perplexity_model()
     init_nltk()
     init_spacy_polish_nlp_model()
-    #init_polish_perplexity_model()
     init_language_tool_pl()
     init_language_tool_en()
-    report_db_name = 'lab_reports-24-12-16'
-    attributes_db_name = 'attributes-24-12-16-recalc-24-12-21.N'
+    load_dictionaries()
+    report_db_name = 'lab_reports-no_toc_biblio_11-03-25'
+    attributes_db_name = 'attributes_24-03-25'
 
     process(report_db=report_db_name, attributes_db=attributes_db_name)
