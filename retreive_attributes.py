@@ -1,5 +1,5 @@
 from config import init_polish_perplexity_model, init_spacy_polish_nlp_model, init_language_tool_pl, \
-    init_language_tool_en, init_nltk
+    init_language_tool_en, init_nltk, load_dictionaries
 
 from typing import List
 from tqdm import tqdm
@@ -15,13 +15,14 @@ from analysis.nlp_transformations import preprocess_text
 from services.utils import suppress_stdout
 
 if __name__ == "__main__":
-    #init_polish_perplexity_model()
+    init_polish_perplexity_model()
     init_nltk()
     init_spacy_polish_nlp_model()
     init_language_tool_pl()
     init_language_tool_en()
-    dao_lab_reports = DAOLabReport()
-    dao_attributes = DAOAttributePL()
+    load_dictionaries()
+    dao_lab_reports = DAOLabReport(collection_name="lab_reports-no_toc_biblio_11-03-25")
+    dao_attributes = DAOAttributePL(collection_name="attributes_24-03-25")
     real_lab_reports: List[LabReportInDB] = dao_lab_reports.find_many_by_query({'is_generated': False})
     generated_lab_reports: List[LabReportInDB] = dao_lab_reports.find_many_by_query({'is_generated': True})
     alreadyprocessed_lab_reports = dao_attributes.find_many_by_query({})
@@ -37,7 +38,7 @@ if __name__ == "__main__":
         with suppress_stdout():
             analysis_result = perform_full_analysis(text_to_analyse, 'pl')
         attribute_to_insert = AttributePL(
-            referenced_db_name='lab_reports',
+            referenced_db_name='lab_reports-no_toc_biblio_11-03-25',
             referenced_doc_id=real_lab_report.id,
             language="pl",
             is_generated=False,
@@ -53,7 +54,7 @@ if __name__ == "__main__":
         with suppress_stdout():
             analysis_result = perform_full_analysis(text_to_analyse, 'pl')
         attribute_to_insert = AttributePL(
-            referenced_db_name='lab_reports',
+            referenced_db_name='lab_reports-no_toc_biblio_11-03-25',
             referenced_doc_id=generated_lab_report.id,
             language="pl",
             is_generated=True,

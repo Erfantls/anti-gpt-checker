@@ -200,7 +200,7 @@ def calculate_perplexity_old(text: str, language_word_probabilities: Dict[str, f
 
 def calculate_perplexity(text: str, language_code: str, per_token: Optional[str] = "word",
                          return_base_ppl: bool = False, return_both: bool = False,
-                         force_use_cpu: bool = False) -> Union[Optional[float], Tuple[float, float]]:
+                         force_use_cpu: bool = True) -> Union[Optional[float], Tuple[float, float]]:
     text = replace_links_with_text(text)
     if per_token not in ["word", "char"]:
         raise ValueError("per_token must be either 'word' or 'char'")
@@ -586,7 +586,7 @@ def count_occurrences(lem_text: str) -> dict:
     return occurrences
 
 
-def split_text_into_chunks(split_sentences: List[str], chunk_word_count: int = 400) -> List[str]:
+def split_text_into_chunks(split_sentences: List[str], chunk_word_count: int = 100) -> List[str]:
     chunks = []
     current_chunk = []
     current_count = 0
@@ -612,7 +612,7 @@ def split_text_into_chunks(split_sentences: List[str], chunk_word_count: int = 4
     if len(chunks) >= 2:
         # Calculate the word count of the last chunk.
         last_chunk_word_count = sum(len(s.split()) for s in chunks[-1])
-        if last_chunk_word_count < 100:
+        if last_chunk_word_count < chunk_word_count/3:
             # If the last chunk is really small (< 100 words),
             # append it to the second-to-last chunk.
             chunks[-2].extend(chunks[-1])

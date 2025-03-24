@@ -62,7 +62,7 @@ class AttributeNoDBParameters(BaseModel):
 
     combination_features: Optional[CombinationFeatures]
 
-    partial_attributes: Optional[List[PartialAttribute]]
+    partial_attributes: Optional[List[PartialAttribute]] = None
 
     def to_flat_dict(self):
         temp_dict = self.dict(
@@ -130,11 +130,12 @@ class AttributeNoDBParameters(BaseModel):
                                                                                                     key] is not None else 0
             # normalization of stylometrix features is not needed as they are already normalized
 
-        for partial_attribute in self.partial_attributes:
-            flattened_partial_attribute_dict = partial_attribute.attribute.to_flat_dict_normalized()
-            flattened_partial_attribute_key = f"partial_attributes.{partial_attribute.index}."
-            for key, value in flattened_partial_attribute_dict.items():
-                flattened_dict[flattened_partial_attribute_key + key] = value
+        if isinstance(self.partial_attributes, list):
+            for partial_attribute in self.partial_attributes:
+                flattened_partial_attribute_dict = partial_attribute.attribute.to_flat_dict_normalized()
+                flattened_partial_attribute_key = f"partial_attributes.{partial_attribute.index}."
+                for key, value in flattened_partial_attribute_dict.items():
+                    flattened_dict[flattened_partial_attribute_key + key] = value
 
         if exclude:
             for key in exclude:
@@ -192,3 +193,13 @@ class PartialAttributeEN(BaseModel):
 
 
 PartialAttribute = Union[PartialAttributePL, PartialAttributeEN]
+
+# needed for recursive nature of PartialAttributes
+AttributeNoDBParameters.update_forward_refs()
+AttributeNoDBParametersPL.update_forward_refs()
+AttributeNoDBParametersEN.update_forward_refs()
+AttributeBase.update_forward_refs()
+AttributePL.update_forward_refs()
+AttributeEN.update_forward_refs()
+AttributePLInDB.update_forward_refs()
+AttributeENInDB.update_forward_refs()
