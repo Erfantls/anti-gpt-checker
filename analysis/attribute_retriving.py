@@ -331,6 +331,9 @@ def calculate_burstiness(lemmatize_text: str, language_code: str) -> float:
     tokens = remove_stopwords_punctuation_emojis_and_splittings(lemmatize_text, language_code)
 
     word_freq = nltk.FreqDist(tokens)
+    if len(word_freq) == 0:
+        return 1 #default value for burstiness
+
     avg_freq = float(sum(word_freq.values()) / len(word_freq))
     variance = float(sum((freq - avg_freq) ** 2 for freq in word_freq.values()) / len(word_freq))
 
@@ -356,7 +359,7 @@ def calculate_burstiness_as_in_papers(lemmatized_text: str, language_code: str) 
             inter_arrival_times.extend(np.diff(positions))
 
     if not inter_arrival_times:
-        return 0.0
+        return 0.0 # default value for this burstiness
 
     mean_iat = np.mean(inter_arrival_times)
     std_iat = np.std(inter_arrival_times)
@@ -586,7 +589,7 @@ def count_occurrences(lem_text: str) -> dict:
     return occurrences
 
 
-def split_text_into_chunks(split_sentences: List[str], chunk_word_count: int = 100) -> List[str]:
+def split_text_into_chunks(split_sentences: List[str], chunk_word_count: int = 200) -> List[str]:
     chunks = []
     current_chunk = []
     current_count = 0
@@ -676,7 +679,7 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
     number_of_words = len(words)
     char_data = [len(word) for word in words]
     number_of_characters = len(text)
-    average_word_char_length = sum(char_data) / len(char_data)
+    average_word_char_length = sum(char_data) / len(char_data) if len(char_data) else 0
     standard_deviation_word_char_length = std(char_data)
     variance_word_char_length = var(char_data)
 
