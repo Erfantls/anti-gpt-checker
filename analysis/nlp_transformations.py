@@ -149,7 +149,12 @@ def split_into_sentences(text: str, lang_code: str) -> List[str]:
     for sentence in [sentence for sentence in sentences if (SUSPICIOUS_SENTENCE_LENGTH < len(sentence.split(" ")))]:
         sentence_split.extend(split_text_on_regex_match(sentence))
 
-    return sentences_normal + sentence_split
+    split_sentences = sentences_normal + sentence_split
+
+    if len(split_sentences) == 0:
+        split_sentences = [text]
+
+    return split_sentences
 
 def replace_meaningful_report_tags(text: str) -> str:
     # Replace tags with placeholders
