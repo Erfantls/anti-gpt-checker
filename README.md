@@ -8,7 +8,7 @@ This project aims to provide a reliable way of distinguishing between AI generat
   - Downloading and installing [pl_nask](http://mozart.ipipan.waw.pl/~rtuora/spacy/pl_nask-0.0.7.tar.gz) model `python -m pip install <PATH_TO_MODEL/pl_nask-0.0.7.tar.gz> `
   - Installing `stylometrix` `pip install stylometrix`
 - Initialize Polish dictionaries:
-  - [SJP](https://sjp.pl/sl/odmiany/)
+  - [SJP](https://sjp.pl/sl/odmiany/) download the newest available
   - [NKJP (1-gram)](https://zil.ipipan.waw.pl/NKJPNGrams?action=AttachFile&do=get&target=1grams.gz)
   - Unpack the archives and move files `odm.txt` and `1grams` into `data` directory inside the project
 - Install the rest of the dependencies `pip install -r requirements.txt`
