@@ -711,10 +711,8 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
     number_of_unrecognized_words_dict_check = dictionary_check(text)
     if skip_stylometrix_calc:
         stylometrix_metrics = None
-        combination_features = None
     else:
         stylometrix_metrics = stylo_metrix_analysis([text], lang_code)[0]
-        combination_features = CombinationFeatures.init_from_stylometrix(stylometrix_metrics)
 
     if skip_partial_attributes:
         partial_attributes = None
@@ -722,6 +720,15 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
         text_chunks = split_text_into_chunks(split_sentences)
         partial_attributes = perform_partial_analysis(text_chunks, lang_code, skip_perplexity_calc,
                                                       skip_stylometrix_calc)
+
+    if skip_stylometrix_calc or skip_partial_attributes:
+        combination_features = None
+    else:
+        partial_attributes_values_dicts: list[dict] =\
+            [partial_attribute.attribute.dict() for partial_attribute in partial_attributes]
+        combination_features = CombinationFeatures.init_from_stylometrix_and_partial_attributes(stylometrix_metrics,
+                                                                                                partial_attributes_values_dicts)
+
 
     if lang_code == "en":
         pos_eng_tags = count_pos_tags_eng(text)
