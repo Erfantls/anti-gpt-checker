@@ -1,5 +1,4 @@
-from config import init_polish_perplexity_model, init_spacy_polish_nlp_model, init_language_tool_pl, \
-    init_language_tool_en, init_nltk, load_dictionaries
+from config import init_all_polish_models
 
 from typing import List
 from tqdm import tqdm
@@ -15,12 +14,7 @@ from analysis.nlp_transformations import preprocess_text
 from services.utils import suppress_stdout
 
 if __name__ == "__main__":
-    init_polish_perplexity_model()
-    init_nltk()
-    init_spacy_polish_nlp_model()
-    init_language_tool_pl()
-    init_language_tool_en()
-    load_dictionaries()
+    init_all_polish_models()
     dao_lab_reports = DAOLabReport(collection_name="lab_reports-no_toc_biblio_11-03-25")
     dao_attributes = DAOAttributePL(collection_name="attributes_24-03-25")
     real_lab_reports: List[LabReportInDB] = dao_lab_reports.find_many_by_query({'is_generated': False})

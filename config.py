@@ -2,7 +2,8 @@ import os
 
 import nltk
 import spacy
-import torch
+
+import stylo_metrix as sm
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from transformers import GPT2LMHeadModel, GPT2TokenizerFast, AutoTokenizer, AutoModelForCausalLM
@@ -131,3 +132,31 @@ def load_dictionaries():
             for word in parts:
                 if word:
                     WORD_SET.add(word)
+
+STYLOMETRIX_PL_MODEL = None
+STYLOMETRIX_EN_MODEL = None
+
+def init_polish_stylometrix_model() -> None:
+    global STYLOMETRIX_PL_MODEL
+    STYLOMETRIX_PL_MODEL = sm.StyloMetrix('pl')
+
+def init_english_stylometrix_model() -> None:
+    global STYLOMETRIX_EN_MODEL
+    STYLOMETRIX_EN_MODEL = sm.StyloMetrix('en')
+
+def init_all_polish_models() -> None:
+    init_polish_perplexity_model()
+    init_nltk()
+    init_spacy_polish_nlp_model()
+    init_language_tool_pl()
+    init_language_tool_en()
+    init_polish_stylometrix_model()
+    load_dictionaries()
+
+def init_all_english_models() -> None:
+    init_english_perplexity_model()
+    init_nltk()
+    init_spacy_english_nlp_model()
+    init_language_tool_en()
+    init_english_stylometrix_model()
+    load_dictionaries()

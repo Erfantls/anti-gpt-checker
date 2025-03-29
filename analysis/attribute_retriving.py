@@ -11,7 +11,6 @@ from collections import defaultdict
 import pandas as pd
 from nltk import pos_tag
 from nltk.tokenize import word_tokenize
-import stylo_metrix as sm
 from numpy import std, var, mean
 from pandas import DataFrame
 from collections import Counter
@@ -122,8 +121,9 @@ def count_punctuation(text: str) -> float:
 
 def stylo_metrix_analysis(texts: List[str], language_code: str) -> list[
     AllStyloMetrixFeaturesPL | AllStyloMetrixFeaturesEN]:
-    stylo = sm.StyloMetrix(language_code)
+    from config import STYLOMETRIX_PL_MODEL, STYLOMETRIX_EN_MODEL
 
+    stylo = STYLOMETRIX_PL_MODEL if language_code == "pl" else STYLOMETRIX_EN_MODEL
     tokens = stylo.nlp(texts[0])
     if len(tokens) < MAX_STYLOMETRIX_LENGTH:
         metrics = stylo.transform(texts[0])
