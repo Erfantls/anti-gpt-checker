@@ -6,36 +6,25 @@ from numpy import std, var, mean
 from models.stylometrix_metrics import AllStyloMetrixFeaturesPL, AllStyloMetrixFeaturesEN
 
 
-# noinspection PyTypeChecker
-class PartialAttributeStatistics(BaseModel):
-    name: str
-    values: list
-    std_dev: float
-    variance: float
-    average: float
+def init_dict_from_key_and_values(values: list[float]) -> dict:
+    values = values
+    if len(values) == 0:
+        raise ValueError("Values list cannot be empty")
+    elif len(values) == 1:
+        std_dev = 0
+        variance = 0
+        average = values[0]
+    else:
+        std_dev = std(values)
+        variance = var(values)
+        average = mean(values)
 
-    @staticmethod
-    def init_from_key_and_values(key: str, values: list[float]):
-        name = key
-        values = values
-        if len(values) == 0:
-            raise ValueError("Values list cannot be empty")
-        elif len(values) == 1:
-            std_dev = 0
-            variance = 0
-            average = values[0]
-        else:
-            std_dev = std(values)
-            variance = var(values)
-            average = mean(values)
-
-        return PartialAttributeStatistics(
-            name=name,
-            values=values,
-            std_dev=std_dev,
-            variance=variance,
-            average=average,
-        )
+    return {
+        "values":values,
+        "std_dev":std_dev,
+        "variance":variance,
+        "average":average,
+    }
 
 
 class CombinationFeatures(BaseModel):
@@ -43,7 +32,7 @@ class CombinationFeatures(BaseModel):
     common_long_word_ratio: Optional[float]
     common_rare_word_ratio: Optional[float]
     active_passive_voice_ratio: Optional[float]
-    partial_attribute_statistics: Optional[list[PartialAttributeStatistics]]
+    partial_attribute_statistics: Optional[dict]
 
     @staticmethod
     def init_from_stylometrix_and_partial_attributes(
@@ -59,12 +48,12 @@ class CombinationFeatures(BaseModel):
             stylometrix_metrics.inflection.IN_V_PASS if stylometrix_metrics.inflection.IN_V_PASS else 1)
 
         if partial_attributes_dicts:
-            partial_attribute_statistics = []
+            partial_attribute_statistics = {}
             for key in partial_attributes_dicts[0]:
                 values = [partial_attribute[key] for partial_attribute in partial_attributes_dicts]
                 if not (isinstance(values[0], float) or isinstance(values[0], int)):
                     continue
-                partial_attribute_statistics.append(PartialAttributeStatistics.init_from_key_and_values(key, values))
+                partial_attribute_statistics[key] = init_dict_from_key_and_values(values)
         else:
             partial_attribute_statistics = None
 

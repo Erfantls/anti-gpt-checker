@@ -14,6 +14,7 @@ from models.combination_features import CombinationFeatures
 class AttributeNoDBParameters(BaseModel):
     perplexity: Optional[float]  # V
     perplexity_base: Optional[float]  # V
+    perplexity_base_normalized: Optional[float]  # V
 
     sample_word_counts: Optional[dict]  # V
 
@@ -83,16 +84,25 @@ class AttributeNoDBParameters(BaseModel):
                 if skip_lists:
                     continue
                 for index, item in enumerate(value):
-                    items.extend(self._flatten_dict(item.dict(), f"{new_key}.{index}", sep=sep).items())
+                    if isinstance(item, dict):
+                        items.extend(self._flatten_dict(item, f"{new_key}.{index}", sep=sep).items())
+                    elif isinstance(item, float) or isinstance(item, int):
+                        items.append((f"{new_key}.{index}", value))
+                    elif isinstance(item, str):
+                        continue
+                    elif isinstance(item, object):
+                        items.extend(self._flatten_dict(item.dict(), f"{new_key}.{index}", sep=sep).items())
+                    else:
+                        raise TypeError(f"Unknown type {type(item)}")
             else:
                 items.append((new_key, value))
         return dict(items)
 
-    def to_flat_dict_normalized(self, exclude=None):
+    def to_flat_dict_normalized(self, exclude=None, include_partial_attributes=False):
         temp_dict = self.dict(
             exclude={"referenced_db_name", "is_generated", "is_personal", "referenced_doc_id", "language", "id",
-                     "pos_eng_tags", "sentiment_eng", "punctuation", "perplexity_base", "lemmatized_text",
-                     "sample_word_counts"})
+                     "pos_eng_tags", "sentiment_eng", "punctuation", "lemmatized_text", #"perplexity_base",
+                     "sample_word_counts", "partial_attributes"})
         if exclude:
             for key in exclude:
                 if key in temp_dict:
@@ -123,14 +133,20 @@ class AttributeNoDBParameters(BaseModel):
         for key in flattened_dict:
             if flattened_dict[key] is None:
                 flattened_dict[key] = 0
-            elif math.isnan(flattened_dict[key]):
+            elif (not isinstance(flattened_dict[key], list) and
+                  not isinstance(flattened_dict[key], dict) and
+                  math.isnan(flattened_dict[key])):
                 flattened_dict[key] = 0
             elif key.startswith("text_errors_by_category."):
                 flattened_dict[key] = float(flattened_dict[key]) / self.number_of_characters if flattened_dict[
                                                                                                     key] is not None else 0
+            elif "partial_attribute_statistics" in key and "values" in key:
+                if exclude is None:
+                    exclude = []
+                exclude.append(key)
             # normalization of stylometrix features is not needed as they are already normalized
 
-        if isinstance(self.partial_attributes, list):
+        if include_partial_attributes and isinstance(self.partial_attributes, list):
             for partial_attribute in self.partial_attributes:
                 flattened_partial_attribute_dict = partial_attribute.attribute.to_flat_dict_normalized()
                 flattened_partial_attribute_key = f"partial_attributes.{partial_attribute.index}."

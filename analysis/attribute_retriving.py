@@ -665,9 +665,10 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
                           skip_stylometrix_calc: bool = False, skip_partial_attributes: bool = False) -> Union[
     AttributeNoDBParametersPL, AttributeNoDBParametersEN]:
     if skip_perplexity_calc:
-        perplexity_base, perplexity = None, None
+        perplexity_base, perplexity, perplexity_base_normalized = None, None, None
     else:
         perplexity_base, perplexity = calculate_perplexity(text, lang_code, return_both=True)
+
 
     lem_text, _ = lemmatize_text(text, lang_code)
     lem_text = lem_text.strip()
@@ -677,6 +678,10 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
 
     words = [token for token in text.split() if token not in string.punctuation]
     number_of_words = len(words)
+
+    if perplexity_base is not None:
+        perplexity_base_normalized = perplexity_base / number_of_words if number_of_words > 0 else 0
+
     char_data = [len(word) for word in words]
     number_of_characters = len(text)
     average_word_char_length = sum(char_data) / len(char_data) if len(char_data) else 0
@@ -721,19 +726,12 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
         partial_attributes = perform_partial_analysis(text_chunks, lang_code, skip_perplexity_calc,
                                                       skip_stylometrix_calc)
 
-    if skip_stylometrix_calc or skip_partial_attributes:
-        combination_features = None
-    else:
-        partial_attributes_values_dicts: list[dict] =\
-            [partial_attribute.attribute.dict() for partial_attribute in partial_attributes]
-        combination_features = CombinationFeatures.init_from_stylometrix_and_partial_attributes(stylometrix_metrics,
-                                                                                                partial_attributes_values_dicts)
-
 
     if lang_code == "en":
         pos_eng_tags = count_pos_tags_eng(text)
         sentiment_eng = sentiment_score_eng(text)
-        return AttributeNoDBParametersEN(perplexity=perplexity, perplexity_base=perplexity_base,
+        temp_attribute = AttributeNoDBParametersEN(perplexity=perplexity, perplexity_base=perplexity_base,
+                                         perplexity_base_normalized=perplexity_base_normalized,
                                          sample_word_counts=sample_word_counts,
                                          burstiness=burstiness, burstiness2=burstiness2,
                                          average_sentence_word_length=average_sentence_word_length,
@@ -763,12 +761,14 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
                                          number_of_abbreviations_lang_tool=number_of_abbreviations,
                                          number_of_unrecognized_words_dict_check=number_of_unrecognized_words_dict_check,
                                          stylometrix_metrics=stylometrix_metrics.dict() if stylometrix_metrics is not None else None,
-                                         combination_features=combination_features,
+                                         combination_features=None,
                                          partial_attributes=partial_attributes)
+
     elif lang_code == "pl":
         pos_eng_tags = None
         sentiment_eng = None
-        return AttributeNoDBParametersPL(perplexity=perplexity, perplexity_base=perplexity_base,
+        temp_attribute = AttributeNoDBParametersPL(perplexity=perplexity, perplexity_base=perplexity_base,
+                                         perplexity_base_normalized=perplexity_base_normalized,
                                          sample_word_counts=sample_word_counts,
                                          burstiness=burstiness, burstiness2=burstiness2,
                                          average_sentence_word_length=average_sentence_word_length,
@@ -798,7 +798,23 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
                                          number_of_abbreviations_lang_tool=number_of_abbreviations,
                                          number_of_unrecognized_words_dict_check=number_of_unrecognized_words_dict_check,
                                          stylometrix_metrics=stylometrix_metrics.dict() if stylometrix_metrics is not None else None,
-                                         combination_features=combination_features,
+                                         combination_features=None,
                                          partial_attributes=partial_attributes)
+
+
     else:
         raise ValueError(f"Language {lang_code} is not supported")
+
+    if skip_stylometrix_calc or skip_partial_attributes:
+        return temp_attribute
+    else:
+        if len(partial_attributes) == 0:
+            combination_features = CombinationFeatures.init_from_stylometrix_and_partial_attributes(stylometrix_metrics,
+                                                                                                    [temp_attribute.dict()])
+        else:
+            partial_attributes_values_dicts: list[dict] = \
+                [partial_attribute.attribute.dict() for partial_attribute in partial_attributes]
+            combination_features = CombinationFeatures.init_from_stylometrix_and_partial_attributes(stylometrix_metrics,
+                                                                                                    partial_attributes_values_dicts)
+        temp_attribute.combination_features = combination_features
+        return temp_attribute
