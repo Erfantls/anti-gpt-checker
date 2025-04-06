@@ -43,7 +43,7 @@ class CombinationFeatures(BaseModel):
         common_long_word_ratio = stylometrix_metrics.lexical.L_TCCT1 / (
             stylometrix_metrics.lexical.L_SYL_G4 if stylometrix_metrics.lexical.L_SYL_G4 else 1)
         common_rare_word_ratio = stylometrix_metrics.lexical.L_TCCT1 / (
-            1 - stylometrix_metrics.lexical.L_TCCT5 if stylometrix_metrics.lexical.L_SYL_G4 else 1)
+            1 - stylometrix_metrics.lexical.L_TCCT5 if stylometrix_metrics.lexical.L_TCCT5 else 1)
         active_passive_voice_ratio = stylometrix_metrics.inflection.IN_V_ACT / (
             stylometrix_metrics.inflection.IN_V_PASS if stylometrix_metrics.inflection.IN_V_PASS else 1)
 
