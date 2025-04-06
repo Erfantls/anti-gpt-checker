@@ -11,7 +11,6 @@ from collections import defaultdict
 import pandas as pd
 from nltk import pos_tag
 from nltk.tokenize import word_tokenize
-import stylo_metrix as sm
 from numpy import std, var, mean
 from pandas import DataFrame
 from collections import Counter
@@ -22,10 +21,10 @@ import pycld2 as cld2
 import cld3
 from textblob import TextBlob
 
-
 from analysis.nlp_transformations import replace_links_with_text, remove_stopwords_punctuation_emojis_and_splittings, \
     lemmatize_text, split_into_sentences, is_abbreviation, get_text_for_punctuation_analysis
-from models.attribute import AttributeNoDBParametersPL, AttributeNoDBParametersEN
+from models.attribute import AttributeNoDBParametersPL, AttributeNoDBParametersEN, PartialAttribute, PartialAttributeEN, \
+    PartialAttributePL
 from models.combination_features import CombinationFeatures
 
 from models.stylometrix_metrics import AllStyloMetrixFeaturesEN, AllStyloMetrixFeaturesPL
@@ -122,8 +121,9 @@ def count_punctuation(text: str) -> float:
 
 def stylo_metrix_analysis(texts: List[str], language_code: str) -> list[
     AllStyloMetrixFeaturesPL | AllStyloMetrixFeaturesEN]:
-    stylo = sm.StyloMetrix(language_code)
+    from config import STYLOMETRIX_PL_MODEL, STYLOMETRIX_EN_MODEL
 
+    stylo = STYLOMETRIX_PL_MODEL if language_code == "pl" else STYLOMETRIX_EN_MODEL
     tokens = stylo.nlp(texts[0])
     if len(tokens) < MAX_STYLOMETRIX_LENGTH:
         metrics = stylo.transform(texts[0])
@@ -144,6 +144,7 @@ def stylo_metrix_analysis(texts: List[str], language_code: str) -> list[
         converted_metrics = stylo_metrix_output_to_model(df, language_code)
         return converted_metrics
 
+
 def stylometrix_analysis_slice_of_text(text: str, language_code: str, already_analysed_list: list, stylo):
     tokens = stylo.nlp(text)
     if len(tokens) < MAX_STYLOMETRIX_LENGTH:
@@ -152,7 +153,6 @@ def stylometrix_analysis_slice_of_text(text: str, language_code: str, already_an
     else:
         stylometrix_analysis_slice_of_text(text[:len(text) // 2], language_code, already_analysed_list, stylo)
         stylometrix_analysis_slice_of_text(text[len(text) // 2:], language_code, already_analysed_list, stylo)
-
 
 
 def stylo_metrix_output_to_model(metrics_df: DataFrame, language_code: str) -> list[
@@ -200,7 +200,7 @@ def calculate_perplexity_old(text: str, language_word_probabilities: Dict[str, f
 
 def calculate_perplexity(text: str, language_code: str, per_token: Optional[str] = "word",
                          return_base_ppl: bool = False, return_both: bool = False,
-                         force_use_cpu: bool = False) -> Union[Optional[float], Tuple[float, float]]:
+                         force_use_cpu: bool = True) -> Union[Optional[float], Tuple[float, float]]:
     text = replace_links_with_text(text)
     if per_token not in ["word", "char"]:
         raise ValueError("per_token must be either 'word' or 'char'")
@@ -234,7 +234,7 @@ def calculate_perplexity(text: str, language_code: str, per_token: Optional[str]
     model.eval()
 
     max_length = model.config.n_positions
-    encodings = recursively_calculate_encodings(text, tokenizer, max_length) # tokenizer(text, return_tensors="pt")
+    encodings = recursively_calculate_encodings(text, tokenizer, max_length)  # tokenizer(text, return_tensors="pt")
 
     stride = 512
     if isinstance(encodings, dict):
@@ -331,11 +331,15 @@ def calculate_burstiness(lemmatize_text: str, language_code: str) -> float:
     tokens = remove_stopwords_punctuation_emojis_and_splittings(lemmatize_text, language_code)
 
     word_freq = nltk.FreqDist(tokens)
+    if len(word_freq) == 0:
+        return 1 #default value for burstiness
+
     avg_freq = float(sum(word_freq.values()) / len(word_freq))
     variance = float(sum((freq - avg_freq) ** 2 for freq in word_freq.values()) / len(word_freq))
 
     burstiness_score = variance / (avg_freq ** 2)
     return burstiness_score
+
 
 # https://arxiv.org/pdf/2310.05030
 def calculate_burstiness_as_in_papers(lemmatized_text: str, language_code: str) -> float:
@@ -355,7 +359,7 @@ def calculate_burstiness_as_in_papers(lemmatized_text: str, language_code: str) 
             inter_arrival_times.extend(np.diff(positions))
 
     if not inter_arrival_times:
-        return 0.0
+        return 0.0 # default value for this burstiness
 
     mean_iat = np.mean(inter_arrival_times)
     std_iat = np.std(inter_arrival_times)
@@ -520,13 +524,13 @@ def spelling_and_grammar_check(text: str, lang_code: str) -> Tuple[Dict[str, int
                 number_of_skipped_errors += 1
                 number_of_abbreviations += 1
                 continue
-            if lang_code == 'pl': # check if maybe the matched text is in english
+            if lang_code == 'pl':  # check if maybe the matched text is in english
                 matches_en = tool_en.check(error_text)
                 if len(matches_en) == 0:
                     number_of_skipped_errors += 1
                     number_of_unrecognized_words += 1
                     continue
-            if len(match.replacements) == 0: # assume that this is a proper noun
+            if len(match.replacements) == 0:  # assume that this is a proper noun
                 number_of_skipped_errors += 1
                 number_of_unrecognized_words += 1
                 continue
@@ -535,7 +539,8 @@ def spelling_and_grammar_check(text: str, lang_code: str) -> Tuple[Dict[str, int
         else:
             error_categories[category] = 1
 
-    return error_categories, len(matches) - number_of_skipped_errors, number_of_abbreviations, number_of_unrecognized_words
+    return (error_categories,
+            len(matches) - number_of_skipped_errors, number_of_abbreviations, number_of_unrecognized_words)
 
 
 def dictionary_check(text: str) -> int:
@@ -545,7 +550,6 @@ def dictionary_check(text: str) -> int:
     # Count each occurrence of a word that is not in the dictionary.
     number_of_unrecognized_words = sum(1 for word in words if word not in WORD_SET)
     return number_of_unrecognized_words
-
 
 
 def measure_text_features(text: str) -> Dict[str, Optional[int]]:
@@ -585,11 +589,86 @@ def count_occurrences(lem_text: str) -> dict:
     return occurrences
 
 
-def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool = True, skip_stylometrix_calc: bool = False) -> Union[AttributeNoDBParametersPL, AttributeNoDBParametersEN]:
+def split_text_into_chunks(split_sentences: List[str], chunk_word_count: int = 200) -> List[str]:
+    chunks = []
+    current_chunk = []
+    current_count = 0
+
+    for sentence in split_sentences:
+        sentence_word_count = len(sentence.split())
+        # If adding the sentence doesn't exceed the target, add it.
+        if current_count + sentence_word_count <= chunk_word_count:
+            current_chunk.append(sentence)
+            current_count += sentence_word_count
+        else:
+            # If there is already content in current_chunk, finalize it.
+            if current_chunk:
+                chunks.append(current_chunk)
+            current_chunk = [sentence]
+            current_count = sentence_word_count
+
+    # Append any remaining sentences as the final chunk.
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    # If there are at least two chunks, adjust the final chunk.
+    if len(chunks) >= 2:
+        # Calculate the word count of the last chunk.
+        last_chunk_word_count = sum(len(s.split()) for s in chunks[-1])
+        if last_chunk_word_count < chunk_word_count/3:
+            # If the last chunk is really small (< 100 words),
+            # append it to the second-to-last chunk.
+            chunks[-2].extend(chunks[-1])
+            chunks.pop()
+        elif last_chunk_word_count < chunk_word_count:
+            # Otherwise, if the last chunk is small but at least 100 words,
+            # copy extra sentences from the end of the second-to-last chunk.
+            missing = chunk_word_count - last_chunk_word_count
+            extra_sentences = []
+            extra_word_count = 0
+            # Iterate over sentences of the second-to-last chunk in reverse order.
+            for sentence in reversed(chunks[-2]):
+                extra_sentences.insert(0, sentence)  # Prepend to preserve order.
+                extra_word_count += len(sentence.split())
+                if extra_word_count >= missing:
+                    break
+            # Copy the extra sentences (without removing them from the previous chunk)
+            # to the beginning of the last chunk.
+            chunks[-1] = extra_sentences + chunks[-1]
+
+    # Join each chunk's sentences into a single string.
+    return [" ".join(chunk) for chunk in chunks]
+
+
+def perform_partial_analysis(text_chunks: List[str], lang_code: str, skip_perplexity_calc: bool = True,
+                             skip_stylometrix_calc: bool = False) -> List[PartialAttribute]:
+    if len(text_chunks) < 2:
+        return []
+
+    partial_attributes = []
+    for index, text_chunk in enumerate(text_chunks):
+        full_analysis_results = perform_full_analysis(text_chunk, lang_code, skip_perplexity_calc,
+                                                      skip_stylometrix_calc, skip_partial_attributes=True)
+        if lang_code == "en":
+            partial_attributes.append(
+                PartialAttributeEN(index=index, partial_text=text_chunk, attribute=full_analysis_results))
+        elif lang_code == "pl":
+            partial_attributes.append(
+                PartialAttributePL(index=index, partial_text=text_chunk, attribute=full_analysis_results))
+        else:
+            raise ValueError(f"Language {lang_code} is not supported")
+
+    return partial_attributes
+
+
+def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool = False,
+                          skip_stylometrix_calc: bool = False, skip_partial_attributes: bool = False) -> Union[
+    AttributeNoDBParametersPL, AttributeNoDBParametersEN]:
     if skip_perplexity_calc:
-        perplexity_base, perplexity = None, None
+        perplexity_base, perplexity, perplexity_base_normalized = None, None, None
     else:
         perplexity_base, perplexity = calculate_perplexity(text, lang_code, return_both=True)
+
 
     lem_text, _ = lemmatize_text(text, lang_code)
     lem_text = lem_text.strip()
@@ -597,12 +676,15 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
     burstiness = calculate_burstiness(lem_text, lang_code)
     burstiness2 = calculate_burstiness_as_in_papers(lem_text, lang_code)
 
-
     words = [token for token in text.split() if token not in string.punctuation]
     number_of_words = len(words)
+
+    if perplexity_base is not None:
+        perplexity_base_normalized = perplexity_base / number_of_words if number_of_words > 0 else 0
+
     char_data = [len(word) for word in words]
     number_of_characters = len(text)
-    average_word_char_length = sum(char_data) / len(char_data)
+    average_word_char_length = sum(char_data) / len(char_data) if len(char_data) else 0
     standard_deviation_word_char_length = std(char_data)
     variance_word_char_length = var(char_data)
 
@@ -629,19 +711,27 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
     exclamation_marks = text_features['exclamation_marks']
     double_question_marks = text_features['double_question_marks']
     double_exclamation_marks = text_features['double_exclamation_marks']
-    text_errors_by_category, number_of_errors, number_of_abbreviations, number_of_unrecognized_words = spelling_and_grammar_check(text, lang_code)
+    text_errors_by_category, number_of_errors, number_of_abbreviations, number_of_unrecognized_words = spelling_and_grammar_check(
+        text, lang_code)
     number_of_unrecognized_words_dict_check = dictionary_check(text)
     if skip_stylometrix_calc:
         stylometrix_metrics = None
-        combination_features = None
     else:
         stylometrix_metrics = stylo_metrix_analysis([text], lang_code)[0]
-        combination_features = CombinationFeatures.init_from_stylometrix(stylometrix_metrics)
+
+    if skip_partial_attributes:
+        partial_attributes = None
+    else:
+        text_chunks = split_text_into_chunks(split_sentences)
+        partial_attributes = perform_partial_analysis(text_chunks, lang_code, skip_perplexity_calc,
+                                                      skip_stylometrix_calc)
+
 
     if lang_code == "en":
         pos_eng_tags = count_pos_tags_eng(text)
         sentiment_eng = sentiment_score_eng(text)
-        return AttributeNoDBParametersEN(perplexity=perplexity, perplexity_base=perplexity_base,
+        temp_attribute = AttributeNoDBParametersEN(perplexity=perplexity, perplexity_base=perplexity_base,
+                                         perplexity_base_normalized=perplexity_base_normalized,
                                          sample_word_counts=sample_word_counts,
                                          burstiness=burstiness, burstiness2=burstiness2,
                                          average_sentence_word_length=average_sentence_word_length,
@@ -654,23 +744,31 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
                                          variance_word_char_length=variance_word_char_length,
                                          average_word_char_length=average_word_char_length,
                                          punctuation=punctuation, punctuation_per_sentence=punctuation_per_sentence,
-                                         punctuation_density=punctuation_density, number_of_sentences=number_of_sentences,
+                                         punctuation_density=punctuation_density,
+                                         number_of_sentences=number_of_sentences,
                                          number_of_words=number_of_words, number_of_characters=number_of_characters,
-                                         double_spaces=double_spaces, no_space_after_punctuation=no_space_after_punctuation,
-                                         emojis=emojis, question_marks=question_marks, exclamation_marks=exclamation_marks,
+                                         double_spaces=double_spaces,
+                                         no_space_after_punctuation=no_space_after_punctuation,
+                                         emojis=emojis, question_marks=question_marks,
+                                         exclamation_marks=exclamation_marks,
                                          double_question_marks=double_question_marks,
                                          double_exclamation_marks=double_exclamation_marks,
-                                         text_errors_by_category=text_errors_by_category, number_of_errors=number_of_errors,
-                                         lemmatized_text=lem_text, pos_eng_tags=pos_eng_tags, sentiment_eng=sentiment_eng,
+                                         text_errors_by_category=text_errors_by_category,
+                                         number_of_errors=number_of_errors,
+                                         lemmatized_text=lem_text, pos_eng_tags=pos_eng_tags,
+                                         sentiment_eng=sentiment_eng,
                                          number_of_unrecognized_words_lang_tool=number_of_unrecognized_words,
                                          number_of_abbreviations_lang_tool=number_of_abbreviations,
                                          number_of_unrecognized_words_dict_check=number_of_unrecognized_words_dict_check,
                                          stylometrix_metrics=stylometrix_metrics.dict() if stylometrix_metrics is not None else None,
-                                         combination_features=combination_features)
+                                         combination_features=None,
+                                         partial_attributes=partial_attributes)
+
     elif lang_code == "pl":
         pos_eng_tags = None
         sentiment_eng = None
-        return AttributeNoDBParametersPL(perplexity=perplexity, perplexity_base=perplexity_base,
+        temp_attribute = AttributeNoDBParametersPL(perplexity=perplexity, perplexity_base=perplexity_base,
+                                         perplexity_base_normalized=perplexity_base_normalized,
                                          sample_word_counts=sample_word_counts,
                                          burstiness=burstiness, burstiness2=burstiness2,
                                          average_sentence_word_length=average_sentence_word_length,
@@ -683,19 +781,40 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
                                          variance_word_char_length=variance_word_char_length,
                                          average_word_char_length=average_word_char_length,
                                          punctuation=punctuation, punctuation_per_sentence=punctuation_per_sentence,
-                                         punctuation_density=punctuation_density, number_of_sentences=number_of_sentences,
+                                         punctuation_density=punctuation_density,
+                                         number_of_sentences=number_of_sentences,
                                          number_of_words=number_of_words, number_of_characters=number_of_characters,
-                                         double_spaces=double_spaces, no_space_after_punctuation=no_space_after_punctuation,
-                                         emojis=emojis, question_marks=question_marks, exclamation_marks=exclamation_marks,
+                                         double_spaces=double_spaces,
+                                         no_space_after_punctuation=no_space_after_punctuation,
+                                         emojis=emojis, question_marks=question_marks,
+                                         exclamation_marks=exclamation_marks,
                                          double_question_marks=double_question_marks,
                                          double_exclamation_marks=double_exclamation_marks,
-                                         text_errors_by_category=text_errors_by_category, number_of_errors=number_of_errors,
-                                         lemmatized_text=lem_text, pos_eng_tags=pos_eng_tags, sentiment_eng=sentiment_eng,
+                                         text_errors_by_category=text_errors_by_category,
+                                         number_of_errors=number_of_errors,
+                                         lemmatized_text=lem_text, pos_eng_tags=pos_eng_tags,
+                                         sentiment_eng=sentiment_eng,
                                          number_of_unrecognized_words_lang_tool=number_of_unrecognized_words,
                                          number_of_abbreviations_lang_tool=number_of_abbreviations,
                                          number_of_unrecognized_words_dict_check=number_of_unrecognized_words_dict_check,
                                          stylometrix_metrics=stylometrix_metrics.dict() if stylometrix_metrics is not None else None,
-                                         combination_features=combination_features)
+                                         combination_features=None,
+                                         partial_attributes=partial_attributes)
+
+
     else:
         raise ValueError(f"Language {lang_code} is not supported")
 
+    if skip_stylometrix_calc or skip_partial_attributes:
+        return temp_attribute
+    else:
+        if len(partial_attributes) == 0:
+            combination_features = CombinationFeatures.init_from_stylometrix_and_partial_attributes(stylometrix_metrics,
+                                                                                                    [temp_attribute.dict()])
+        else:
+            partial_attributes_values_dicts: list[dict] = \
+                [partial_attribute.attribute.dict() for partial_attribute in partial_attributes]
+            combination_features = CombinationFeatures.init_from_stylometrix_and_partial_attributes(stylometrix_metrics,
+                                                                                                    partial_attributes_values_dicts)
+        temp_attribute.combination_features = combination_features
+        return temp_attribute
