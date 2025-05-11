@@ -1,9 +1,9 @@
 from enum import Enum
-from typing import Union, Optional, List, Literal
+from typing import Union, List
 
 from pydantic import BaseModel
 
-from models.attribute import PartialAttribute, AttributeInDB
+from api.models.analysis import AnalysisData
 from models.base_mongo_model import MongoObjectId
 
 
@@ -37,12 +37,6 @@ class BackgroundTaskFinishedResponse(BaseModel):
     analysis_id: MongoObjectId
 
 BackgroundTaskStatusResponse = Union[BackgroundTaskRunningResponse, BackgroundTaskFinishedResponse, BackgroundTaskStillRunningResponse]
-
-class AnalysisData(BaseModel):
-    analysis_id: MongoObjectId
-    document_id: str
-    full_features: AttributeInDB
-    partial_features: Optional[List[PartialAttribute]] = None
 
 class AnalysisResultsResponse(BaseModel):
     type = "analysis_results_response"
