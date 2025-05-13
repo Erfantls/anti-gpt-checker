@@ -4,20 +4,27 @@ from typing import Optional, List
 from pydantic import BaseModel
 
 from models.attribute import AttributeInDB, PartialAttribute
-from models.base_mongo_model import MongoDBModel
+from models.base_mongo_model import MongoDBModel, MongoObjectId
 
 
 class AnalysisType(str, Enum):
     FULL = "full"
     PARTIAL = "partial"
 
+class AnalysisStatus(str, Enum):
+    RUNNING = "running"
+    FINISHED = "finished"
+    FAILED = "failed"
+
 class Analysis(BaseModel):
     analysis_id: str
     type: AnalysisType
+    status: AnalysisStatus
     document_id: str
+    features_id: MongoObjectId
 
 
-class DocumentInDB(MongoDBModel, Analysis):
+class AnalysisInDB(MongoDBModel, Analysis):
     pass
 
 
