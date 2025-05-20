@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 from typing import Optional, List
 
@@ -21,7 +22,9 @@ class Analysis(BaseModel):
     type: AnalysisType
     status: AnalysisStatus
     document_id: str
-    features_id: MongoObjectId
+    features_id: Optional[MongoObjectId] = None
+    estimated_wait_time: int
+    start_time: datetime
 
 
 class AnalysisInDB(MongoDBModel, Analysis):
@@ -32,4 +35,3 @@ class AnalysisData(BaseModel):
     analysis_id: str
     document_id: str
     full_features: AttributeInDB
-    partial_features: Optional[List[PartialAttribute]] = None
