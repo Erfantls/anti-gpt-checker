@@ -3,40 +3,50 @@ from typing import Union, List
 
 from pydantic import BaseModel
 
-from api.models.analysis import AnalysisData
+from api.models.analysis import AnalysisData, AnalysisStatus
 from models.base_mongo_model import MongoObjectId
 
 
-class NoReviewsFoundResponse(BaseModel):
-    type = "no_reviews_found_response"
-    message: str = "No reviews found on the specified place"
+class NoAnalysisFoundResponse(BaseModel):
+    type = "no_analysis_found_response"
+    message: str = "No analysis found with the specified ID"
 
-class FailedToExtractData(BaseModel):
+class NoAttributeFoundResponse(BaseModel):
+    type = "no_attribute_found_response"
+    message: str = "No attribute found with the specified ID"
+
+class NoDocumentFoundResponse(BaseModel):
+    type = "no_document_found_response"
+    message: str = "No document found with the specified ID"
+
+
+class BackgroundTaskFailedResponse(BaseModel):
     type = "failed_to_extract_data_response"
-    message: str = "Failed to extract attributes from the given document, if you are sure that the document is not malformed, please call renew-markers endpoint first"
-
-class BackgroundTaskStillRunningResponse(BaseModel):
-    type = "background_task_still_running_response"
-    message: str = "Background task is still running, please wait the given wait-time and then call this endpoint again"
+    message: str = "Failed to extract attributes from the given document"
+    status = AnalysisStatus.FAILED
     document_id: str
-    estimated_wait_time: int
-    analysis_id = None
+    estimated_wait_time: int = 0
+    analysis_id: str
+
 
 class BackgroundTaskRunningResponse(BaseModel):
     type = "background_task_running_response"
-    message: str = "Background task is running, please wait the given wait-time and call check-results endpoint with the given document_id"
+    message: str = "Background task is running, please wait the given wait-time and call document-analysis-result endpoint with the given analysis_id"
+    status = AnalysisStatus.RUNNING
     document_id: str
     estimated_wait_time: int
-    analysis_id = None
+    analysis_id: str
+
 
 class BackgroundTaskFinishedResponse(BaseModel):
     type = "background_task_finished_response"
     message: str = "Background task is finished"
+    status = AnalysisStatus.FINISHED
     document_id: str
     estimated_wait_time: int = 0
-    analysis_id: MongoObjectId
+    analysis_id: str
 
-BackgroundTaskStatusResponse = Union[BackgroundTaskRunningResponse, BackgroundTaskFinishedResponse, BackgroundTaskStillRunningResponse]
+BackgroundTaskStatusResponse = Union[BackgroundTaskRunningResponse, BackgroundTaskFinishedResponse, BackgroundTaskFailedResponse]
 
 class AnalysisResultsResponse(BaseModel):
     type = "analysis_results_response"
