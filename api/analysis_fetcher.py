@@ -3,12 +3,12 @@ from typing import Optional
 
 import uvicorn
 
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.config import API_ATTRIBUTES_COLLECTION_NAME, API_ATTRIBUTES_REFERENCE_COLLECTION_NAME
+from api.config import API_ATTRIBUTES_COLLECTION_NAME
 from api.dao.analysis import DAOAnalysis
 from api.dao.document import DAODocument
 from api.models.analysis import AnalysisInDB, AnalysisStatus, AnalysisData
