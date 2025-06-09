@@ -1,9 +1,9 @@
-from dao.base import DAOBase
 from api.config import API_MONGO_CLIENT, API_MONGODB_DB_NAME, API_DOCUMENTS_COLLECTION_NAME
 from api.models.document import Document, DocumentInDB
+from dao.base_async import DAOBaseAsync
 
 
-class DAODocument(DAOBase):
+class DAOAsyncDocument(DAOBaseAsync):
     def __init__(self, collection_name=API_DOCUMENTS_COLLECTION_NAME):
         super().__init__(API_MONGO_CLIENT,
                          API_MONGODB_DB_NAME,
