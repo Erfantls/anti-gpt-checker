@@ -3,28 +3,29 @@ from typing import Optional
 
 import uvicorn
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.responses import FileResponse
 
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.config import API_ATTRIBUTES_COLLECTION_NAME
-from api.dao.analysis import DAOAnalysis
-from api.dao.document import DAODocument
+from api.dao.analysis import DAOAsyncAnalysis
+from api.dao.document import DAOAsyncDocument
 from api.models.analysis import AnalysisInDB, AnalysisStatus, AnalysisData
 from api.models.request import LightbulbScoreRequestData
 from api.models.response import BackgroundTaskStatusResponse, BackgroundTaskRunningResponse, AnalysisResultsResponse, \
     LightbulbScoreResponse, NoAnalysisFoundResponse, BackgroundTaskFailedResponse, NoAttributeFoundResponse, \
     LightbulbScoreData, LightbulbScoreType
 from api.analyser import calculate_lightbulb_score
+from api.security import verify_token
 
-from dao.attribute import DAOAttributePL
+from dao.attribute import DAOAsyncAttributePL
 from models.attribute import AttributePLInDB
 
 app = FastAPI()
-dao_analysis: DAOAnalysis = DAOAnalysis()
-dao_document: DAODocument = DAODocument()
-dao_attribute: DAOAttributePL = DAOAttributePL(collection_name=API_ATTRIBUTES_COLLECTION_NAME)
+dao_analysis: DAOAsyncAnalysis = DAOAsyncAnalysis()
+dao_document: DAOAsyncDocument = DAOAsyncDocument()
+dao_attribute: DAOAsyncAttributePL = DAOAsyncAttributePL(collection_name=API_ATTRIBUTES_COLLECTION_NAME)
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,6 +33,7 @@ app.add_middleware(
     allow_methods=["*"],  # Adjust this to restrict HTTP methods if needed
     allow_headers=["*"],  # Adjust this to restrict headers if needed
 )
+
 
 def _handle_analysis_status(analysis: AnalysisInDB) -> BackgroundTaskStatusResponse:
     if analysis.status == AnalysisStatus.FAILED:
@@ -60,10 +62,11 @@ def _handle_analysis_status(analysis: AnalysisInDB) -> BackgroundTaskStatusRespo
     else:
         raise Exception(f"Unknown analysis status: {analysis.status}")
 
+
 @app.get("/document-analysis-status",
          response_model=BackgroundTaskStatusResponse | NoAnalysisFoundResponse)
-def document_analysis_results(analysis_id: str):
-    analysis: Optional[AnalysisInDB] = dao_analysis.find_one_by_query({'analysis_id': analysis_id})
+async def document_analysis_results(analysis_id: str, _: bool = Depends(verify_token)):
+    analysis: Optional[AnalysisInDB] = await dao_analysis.find_one_by_query({'analysis_id': analysis_id})
     if not analysis:
         return NoAnalysisFoundResponse()
 
@@ -72,15 +75,15 @@ def document_analysis_results(analysis_id: str):
 
 @app.get("/document-analysis-result",
          response_model=AnalysisResultsResponse | BackgroundTaskStatusResponse | NoAnalysisFoundResponse)
-def document_analysis_results(analysis_id: str):
-    analysis: Optional[AnalysisInDB] = dao_analysis.find_one_by_query({'analysis_id': analysis_id})
+async def document_analysis_results(analysis_id: str, _: bool = Depends(verify_token)):
+    analysis: Optional[AnalysisInDB] = await dao_analysis.find_one_by_query({'analysis_id': analysis_id})
     if not analysis:
         return NoAnalysisFoundResponse()
 
     if analysis.status != AnalysisStatus.FINISHED:
         return _handle_analysis_status(analysis)
 
-    attribute: AttributePLInDB = dao_attribute.find_one_by_query({'_id': analysis.features_id})
+    attribute: AttributePLInDB = await dao_attribute.find_one_by_query({'_id': analysis.features_id})
     if not attribute:
         return NoAttributeFoundResponse()
 
@@ -95,15 +98,15 @@ def document_analysis_results(analysis_id: str):
 
 @app.get("/lightbulbs_scores",
          response_model=LightbulbScoreResponse)
-def lightbulb_score(analysis_id: str, request_data: LightbulbScoreRequestData):
-    analysis: Optional[AnalysisInDB] = dao_analysis.find_one_by_query({'analysis_id': analysis_id})
+async def lightbulb_score(analysis_id: str, request_data: LightbulbScoreRequestData):
+    analysis: Optional[AnalysisInDB] = await dao_analysis.find_one_by_query({'analysis_id': analysis_id})
     if not analysis:
         return NoAnalysisFoundResponse()
 
     if analysis.status != AnalysisStatus.FINISHED:
         return _handle_analysis_status(analysis)
 
-    attribute: AttributePLInDB = dao_attribute.find_one_by_query({'_id': analysis.features_id})
+    attribute: AttributePLInDB = await dao_attribute.find_one_by_query({'_id': analysis.features_id})
     if not attribute:
         return NoAttributeFoundResponse()
 
@@ -113,8 +116,9 @@ def lightbulb_score(analysis_id: str, request_data: LightbulbScoreRequestData):
         if attribute_name not in attribute_dict:
             continue
 
-        attribute_value = attribute_dict[attribute_name]#FIXME check what category should the score be in
-        lightbulb_score_value = calculate_lightbulb_score(attribute_value, attribute_name, category=LightbulbScoreType.BIDIRECTIONAL)
+        attribute_value = attribute_dict[attribute_name]  # FIXME check what category should the score be in
+        lightbulb_score_value = calculate_lightbulb_score(attribute_value, attribute_name,
+                                                          category=LightbulbScoreType.BIDIRECTIONAL)
         lightbulb_score_data.append(LightbulbScoreData(
             attribute_name=attribute_name,
             type=LightbulbScoreType.BIDIRECTIONAL,
@@ -126,11 +130,13 @@ def lightbulb_score(analysis_id: str, request_data: LightbulbScoreRequestData):
     )
     # return list of lightbulb scores
 
+
 @app.get("/graph-image")
-def get_graph_image(analysis_id: str, attribute_name: str):
+async def get_graph_image(analysis_id: str, attribute_name: str):
     # generate image and save it to a file
     image_path = "path/to/image.png"
     return FileResponse(image_path, media_type="image/png")
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

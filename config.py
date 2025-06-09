@@ -5,6 +5,7 @@ import spacy
 
 import stylo_metrix as sm
 from dotenv import load_dotenv
+from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import MongoClient
 from transformers import GPT2LMHeadModel, GPT2TokenizerFast, AutoTokenizer, AutoModelForCausalLM
 
@@ -38,8 +39,11 @@ MONGODB_AUTH_DB = os.getenv("MONGODB_AUTH_DB")
 
 if MONGODB_AUTH_USER and MONGODB_AUTH_PASS and MONGODB_AUTH_DB:
     MONGO_CLIENT = MongoClient(host=MONGODB_URI, port=MONGODB_PORT, username=MONGODB_AUTH_USER, password=MONGODB_AUTH_PASS, authSource=MONGODB_AUTH_DB)
+    ASYNC_MONGO_CLIENT = AsyncIOMotorClient(host=MONGODB_URI, port=MONGODB_PORT, username=MONGODB_AUTH_USER, password=MONGODB_AUTH_PASS, authSource=MONGODB_AUTH_DB)
 else:
     MONGO_CLIENT = MongoClient(MONGODB_URI, MONGODB_PORT)
+    ASYNC_MONGO_CLIENT = AsyncIOMotorClient(MONGODB_URI, MONGODB_PORT)
+
 ATTRIBUTES_COLLECTION_NAME = os.getenv("ATTRIBUTES_COLLECTION_NAME", "attributes")
 LAB_REPORTS_COLLECTION_NAME = os.getenv("LAB_REPORTS_COLLECTION_NAME", "lab_reports")
 
