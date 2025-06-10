@@ -26,3 +26,5 @@ API_ATTRIBUTES_REFERENCE_COLLECTION_NAME = os.getenv("API_ATTRIBUTES_REFERENCE_C
 
 API_WEB_APP_IP = os.getenv("API_WEB_APP_IP", "")
 API_WEB_APP_PORT = int(os.getenv("API_WEB_APP_PORT", 8000))
+
+API_DEBUG = (os.getenv("API_DEBUG", "False").lower() in ["1", "true", "t", "yes", "y"])

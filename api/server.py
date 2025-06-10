@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
+from api.analyser import load_reference_attributes
 from api.analysis_fetcher import router as analysis_fetcher_router
 from api.feature_extraction import router as feature_extraction_router
 
@@ -19,6 +20,8 @@ app.add_middleware(
 
 # entry point when you run:  python main.py
 if __name__ == "__main__":
+    load_reference_attributes()
+
     import uvicorn
 
     uvicorn.run(
