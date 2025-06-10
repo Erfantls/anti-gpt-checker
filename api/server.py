@@ -25,11 +25,13 @@ if __name__ == "__main__":
     print("Loading reference attributes...")
     load_reference_attributes()
     print("Reference attributes loaded successfully.")
+    print("=========================================================")
 
     print("Initializing feature extraction models...")
     with suppress_stdout():
         init_all_polish_models()
     print("Feature extraction models initialized successfully.")
+    print("=========================================================")
 
     import uvicorn
 
