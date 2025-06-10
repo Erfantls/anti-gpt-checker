@@ -5,6 +5,7 @@ from api.analyser import load_reference_attributes
 from api.analysis_fetcher import router as analysis_fetcher_router
 from api.feature_extraction import router as feature_extraction_router
 from config import init_all_polish_models
+from services.utils import suppress_stdout
 
 app = FastAPI()
 
@@ -21,8 +22,15 @@ app.add_middleware(
 
 # entry point when you run:  python main.py
 if __name__ == "__main__":
+    print("Loading reference attributes...")
     load_reference_attributes()
-    init_all_polish_models()
+    print("Reference attributes loaded successfully.")
+
+    print("Initializing feature extraction models...")
+    with suppress_stdout():
+        init_all_polish_models()
+    print("Feature extraction models initialized successfully.")
+
     import uvicorn
 
     uvicorn.run(

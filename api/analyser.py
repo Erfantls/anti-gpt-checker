@@ -18,13 +18,11 @@ def load_reference_attributes() -> None:
     global GENERATED_FLAT_DICT, REAL_FLAT_DICT
     if GENERATED_FLAT_DICT is not None and REAL_FLAT_DICT is not None:
         return
-    print("LOADING REFERENCE ATTRIBUTES")
     generated: List[AttributePLInDB] = dao_attribute_reference.find_many_by_query({"is_generated": True})
     real: List[AttributePLInDB] = dao_attribute_reference.find_many_by_query({"is_generated": False})
 
     GENERATED_FLAT_DICT = [(x.to_flat_dict_normalized(), 1) for x in generated]
     REAL_FLAT_DICT = [(x.to_flat_dict_normalized(), 0) for x in real]
-    print("LOADED REFERENCE ATTRIBUTES")
 
 def plot_two_hists(data1, data2, title, metric_name="Metric", num_bin=21, min_value=0, max_value=5, top=0.5,
                    additional_values=None, file_name=""):
