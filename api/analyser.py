@@ -4,8 +4,8 @@ import numpy as np
 from scipy.stats import gaussian_kde
 from matplotlib import pyplot as plt
 
-from api.config import API_ATTRIBUTES_REFERENCE_COLLECTION_NAME
-from api.models.response import LightbulbScoreType
+from api.server_config import API_ATTRIBUTES_REFERENCE_COLLECTION_NAME
+from api.api_models.response import LightbulbScoreType
 from dao.attribute import DAOAttributePL
 from models.attribute import AttributePLInDB
 

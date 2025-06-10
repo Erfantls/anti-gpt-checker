@@ -1,5 +1,5 @@
-from api.config import API_MONGO_CLIENT, API_MONGODB_DB_NAME, API_ANALYSIS_COLLECTION_NAME
-from api.models.analysis import Analysis, AnalysisInDB
+from api.server_config import API_MONGO_CLIENT, API_MONGODB_DB_NAME, API_ANALYSIS_COLLECTION_NAME
+from api.api_models.analysis import Analysis, AnalysisInDB
 from dao.base_async import DAOBaseAsync
 
 

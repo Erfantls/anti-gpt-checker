@@ -4,7 +4,7 @@ import httpx
 from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from api.config import API_WEB_APP_IP, API_WEB_APP_PORT
+from api.server_config import API_WEB_APP_IP, API_WEB_APP_PORT
 
 security = HTTPBearer(auto_error=False)
 

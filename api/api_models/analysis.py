@@ -4,7 +4,7 @@ from typing import Optional, List
 
 from pydantic import BaseModel
 
-from models.attribute import AttributeInDB, PartialAttribute
+from models.attribute import AttributeInDB
 from models.base_mongo_model import MongoDBModel, MongoObjectId
 
 

@@ -1,5 +1,5 @@
-from api.config import API_MONGO_CLIENT, API_MONGODB_DB_NAME, API_DOCUMENTS_COLLECTION_NAME
-from api.models.document import Document, DocumentInDB
+from api.server_config import API_MONGO_CLIENT, API_MONGODB_DB_NAME, API_DOCUMENTS_COLLECTION_NAME
+from api.api_models.document import Document, DocumentInDB
 from dao.base_async import DAOBaseAsync
 
 

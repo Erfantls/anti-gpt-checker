@@ -3,7 +3,7 @@ from typing import Union, List
 
 from pydantic import BaseModel
 
-from api.models.analysis import AnalysisData, AnalysisStatus
+from api.api_models.analysis import AnalysisData, AnalysisStatus
 from models.base_mongo_model import MongoObjectId
 
 
