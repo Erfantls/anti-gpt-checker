@@ -73,6 +73,3 @@ async def _perform_analysis(analysis_id: str, document_id):
         await dao_analysis.update_one({'analysis_id': analysis_id}, {'$set': {'status': AnalysisStatus.FAILED}})
 
 
-def _init_server():
-    init_all_polish_models()
-
