@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
-from analysis_fetcher import router as analysis_fetcher_router
-from feature_extraction import router as feature_extraction_router
+from api.analysis_fetcher import router as analysis_fetcher_router
+from api.feature_extraction import router as feature_extraction_router
 
 app = FastAPI()
 
