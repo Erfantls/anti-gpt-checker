@@ -71,7 +71,9 @@ def _perform_analysis(analysis_id: str, document_id):
         )
         dao_attribute.insert_one(attribute_to_insert)
         dao_analysis.update_one({'analysis_id': analysis_id}, {'$set': {'status': AnalysisStatus.FINISHED}})
-    except:
-        dao_analysis.update_one({'analysis_id': analysis_id}, {'$set': {'status': AnalysisStatus.FAILED}})
+    except Exception as e:
+        dao_analysis.update_one({'analysis_id': analysis_id}, {'$set':
+                                                                   {'status': AnalysisStatus.FAILED,
+                                                                    'error_message': str(e)}})
 
 

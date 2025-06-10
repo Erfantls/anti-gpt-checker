@@ -25,6 +25,7 @@ class Analysis(BaseModel):
     features_id: Optional[MongoObjectId] = None
     estimated_wait_time: int
     start_time: datetime
+    error_message: Optional[str] = None
 
 
 class AnalysisInDB(MongoDBModel, Analysis):
