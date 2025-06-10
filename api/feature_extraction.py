@@ -1,3 +1,4 @@
+import traceback
 import hashlib
 from datetime import datetime
 
@@ -74,6 +75,6 @@ def _perform_analysis(analysis_id: str, document_id):
     except Exception as e:
         dao_analysis.update_one({'analysis_id': analysis_id}, {'$set':
                                                                    {'status': AnalysisStatus.FAILED,
-                                                                    'error_message': str(e)}})
+                                                                    'error_message': traceback.format_exc()}})
 
 
