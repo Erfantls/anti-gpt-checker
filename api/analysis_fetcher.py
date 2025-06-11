@@ -9,9 +9,10 @@ from api.server_dao.analysis import DAOAsyncAnalysis
 from api.server_dao.document import DAOAsyncDocument
 from api.api_models.analysis import AnalysisInDB, AnalysisStatus, AnalysisData
 from api.api_models.request import LightbulbScoreRequestData
-from api.api_models.response import BackgroundTaskStatusResponse, BackgroundTaskRunningResponse, AnalysisResultsResponse, \
+from api.api_models.response import BackgroundTaskStatusResponse, BackgroundTaskRunningResponse, \
+    AnalysisResultsResponse, \
     LightbulbScoreResponse, NoAnalysisFoundResponse, BackgroundTaskFailedResponse, NoAttributeFoundResponse, \
-    LightbulbScoreData, LightbulbScoreType
+    LightbulbScoreData, LightbulbScoreType, BackgroundTaskFinishedResponse
 from api.analyser import calculate_lightbulb_score, compare_2_hists
 from api.security import verify_token
 
@@ -122,7 +123,7 @@ def _handle_analysis_status(analysis: AnalysisInDB) -> BackgroundTaskStatusRespo
             estimated_wait_time=remaining_time
         )
     elif analysis.status == AnalysisStatus.FINISHED:
-        return BackgroundTaskRunningResponse(
+        return BackgroundTaskFinishedResponse(
             analysis_id=analysis.analysis_id,
             document_id=analysis.document_id,
             estimated_wait_time=0
