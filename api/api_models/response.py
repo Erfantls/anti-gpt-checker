@@ -18,6 +18,10 @@ class NoDocumentFoundResponse(BaseModel):
     type = "no_document_found_response"
     message: str = "No document found with the specified ID"
 
+class DocumentWithSpecifiedIDAlreadyExists(BaseModel):
+    type = "document_with_specified_id_already_exists"
+    message: str = "Document with the specified ID already exists, please use a different ID"
+
 
 class BackgroundTaskFailedResponse(BaseModel):
     type = "failed_to_extract_data_response"

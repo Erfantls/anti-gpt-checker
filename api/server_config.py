@@ -31,3 +31,5 @@ API_WEB_APP_IP = os.getenv("API_WEB_APP_IP", "")
 API_WEB_APP_PORT = int(os.getenv("API_WEB_APP_PORT", 8000))
 
 API_DEBUG = (os.getenv("API_DEBUG", "False").lower() in ["1", "true", "t", "yes", "y"])
+
+API_HISTOGRAMS_PATH = os.getenv("API_HISTOGRAMS_PATH")

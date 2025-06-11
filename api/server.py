@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
@@ -7,7 +9,22 @@ from api.feature_extraction import router as feature_extraction_router
 from config import init_all_polish_models
 from services.utils import suppress_stdout
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Loading reference attributes...")
+    load_reference_attributes()
+    print("Reference attributes loaded successfully.")
+    print("=========================================================")
+
+    print("Initializing feature extraction models...")
+
+    with suppress_stdout():
+        init_all_polish_models()
+    print("Feature extraction models initialized successfully.")
+    print("=========================================================")
+
+    yield
+app = FastAPI(lifespan=lifespan)
 
 # add the routers, choose prefixes if you wish
 app.include_router(analysis_fetcher_router, prefix="/results")
@@ -22,17 +39,6 @@ app.add_middleware(
 
 # entry point when you run:  python main.py
 if __name__ == "__main__":
-    print("Loading reference attributes...")
-    load_reference_attributes()
-    print("Reference attributes loaded successfully.")
-    print("=========================================================")
-
-    print("Initializing feature extraction models...")
-    with suppress_stdout():
-        init_all_polish_models()
-    print("Feature extraction models initialized successfully.")
-    print("=========================================================")
-
     import uvicorn
 
     uvicorn.run(

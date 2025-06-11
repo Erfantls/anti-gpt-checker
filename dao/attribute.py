@@ -5,17 +5,17 @@ from models.attribute import AttributePL, AttributeEN, AttributePLInDB, Attribut
 
 
 class DAOAttributePL(DAOBase):
-    def __init__(self, collection_name=ATTRIBUTES_COLLECTION_NAME):
+    def __init__(self, collection_name=ATTRIBUTES_COLLECTION_NAME, db_name=MONGODB_DB_NAME):
         super().__init__(MONGO_CLIENT,
-                         MONGODB_DB_NAME,
+                         db_name,
                          collection_name,
                          AttributePL,
                          AttributePLInDB)
 
 class DAOAsyncAttributePL(DAOBaseAsync):
-    def __init__(self, collection_name=ATTRIBUTES_COLLECTION_NAME):
+    def __init__(self, collection_name=ATTRIBUTES_COLLECTION_NAME, db_name=MONGODB_DB_NAME):
         super().__init__(ASYNC_MONGO_CLIENT,
-                         MONGODB_DB_NAME,
+                         db_name,
                          collection_name,
                          AttributePL,
                          AttributePLInDB)

@@ -6,14 +6,15 @@ from fastapi import BackgroundTasks, Depends, APIRouter
 
 from analysis.attribute_retriving import perform_full_analysis
 from analysis.nlp_transformations import preprocess_text
-from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DOCUMENTS_COLLECTION_NAME, API_DEBUG
+from api.api_models.response import DocumentWithSpecifiedIDAlreadyExists
+from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DOCUMENTS_COLLECTION_NAME, API_DEBUG, \
+    API_MONGODB_DB_NAME
 from api.server_dao.analysis import DAOAsyncAnalysis, DAOAnalysis
 from api.server_dao.document import DAOAsyncDocument, DAODocument
 from api.api_models.analysis import Analysis, AnalysisType, AnalysisStatus
 from api.api_models.document import DocumentInDB, Document
 from api.api_models.request import PreprocessedDocumentRequestData
 from api.security import verify_token
-from config import init_all_polish_models
 from dao.attribute import DAOAttributePL
 from models.attribute import AttributePL
 
@@ -22,19 +23,27 @@ router = APIRouter()
 dao_async_analysis: DAOAsyncAnalysis = DAOAsyncAnalysis()
 dao_async_document: DAOAsyncDocument = DAOAsyncDocument()
 
-@router.post("/add-document")
+@router.post("/add-document",
+             response_model=dict | DocumentWithSpecifiedIDAlreadyExists
+             )
 async def post_preprocess_document(preprocessed_document: PreprocessedDocumentRequestData,
                                    _: bool = Depends(verify_token) if not API_DEBUG else True):
+    # Check if the document already exists
+    existing_doc = await dao_async_document.find_one_by_query({"document_id": preprocessed_document.document_id})
+    if existing_doc:
+        return DocumentWithSpecifiedIDAlreadyExists()
+
     document = Document(
         document_id=preprocessed_document.document_id,
         plaintext_content=preprocessed_document.preprocessed_content,
         filepath=preprocessed_document.filepath
     )
     await dao_async_document.insert_one(document)
-    return {"message": f"Document has been inserted"}
+    return {"message": f"Document with ID {preprocessed_document.document_id} has been inserted"}
 
 
-@router.post("/trigger-analysis")
+@router.post("/trigger-analysis",
+             response_model=dict)
 async def trigger_document_analysis(document_id: str, background_tasks: BackgroundTasks,
                                     perform_full_analysis: bool = False, _: bool = Depends(verify_token) if not API_DEBUG else True):
     # generate analysis_id
@@ -55,7 +64,7 @@ async def trigger_document_analysis(document_id: str, background_tasks: Backgrou
 
 dao_analysis: DAOAnalysis = DAOAnalysis()
 dao_document: DAODocument = DAODocument()
-dao_attribute: DAOAttributePL = DAOAttributePL(collection_name=API_ATTRIBUTES_COLLECTION_NAME)
+dao_attribute: DAOAttributePL = DAOAttributePL(collection_name=API_ATTRIBUTES_COLLECTION_NAME, db_name=API_MONGODB_DB_NAME)
 
 def _perform_analysis(analysis_id: str, document_id):
     document: DocumentInDB = dao_document.find_one_by_query({'document_id': document_id})
@@ -70,8 +79,8 @@ def _perform_analysis(analysis_id: str, document_id):
             is_personal=None,
             **analysis_result.dict()
         )
-        dao_attribute.insert_one(attribute_to_insert)
-        dao_analysis.update_one({'analysis_id': analysis_id}, {'$set': {'status': AnalysisStatus.FINISHED}})
+        attributes_id = dao_attribute.insert_one(attribute_to_insert)
+        dao_analysis.update_one({'analysis_id': analysis_id}, {'$set': {'status': AnalysisStatus.FINISHED, "attributes_id": attributes_id}})
     except Exception as e:
         dao_analysis.update_one({'analysis_id': analysis_id}, {'$set':
                                                                    {'status': AnalysisStatus.FAILED,

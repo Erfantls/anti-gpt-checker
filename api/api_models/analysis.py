@@ -22,7 +22,7 @@ class Analysis(BaseModel):
     type: AnalysisType
     status: AnalysisStatus
     document_id: str
-    features_id: Optional[MongoObjectId] = None
+    attributes_id: Optional[MongoObjectId] = None
     estimated_wait_time: int
     start_time: datetime
     error_message: Optional[str] = None
@@ -35,4 +35,4 @@ class AnalysisInDB(MongoDBModel, Analysis):
 class AnalysisData(BaseModel):
     analysis_id: str
     document_id: str
-    full_features: AttributeInDB
+    full_features: dict
