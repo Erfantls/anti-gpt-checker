@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  anti-gpt-api:
+    build: .
+    ports:
+      - "8989:8989"
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    env_file:
+      - .env
+      - ./api/.env
