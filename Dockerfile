@@ -21,7 +21,7 @@ RUN curl -L -o /tmp/pl_nask.tar.gz "http://mozart.ipipan.waw.pl/~rtuora/spacy/pl
     rm /tmp/pl_nask.tar.gz
 
 # Install stylometrix (only after all dependencies are satisfied)
-RUN pip install stylometrix
+RUN pip install stylo_metrix
 
 # Copy requirements and install Python packages
 COPY requirements.txt .
