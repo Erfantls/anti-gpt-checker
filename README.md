@@ -44,3 +44,7 @@ API_DEBUG="" # True or False
 API_HISTOGRAMS_PATH=""
 ```
 
+# Docker
+
+To run the project using Docker, you need to complete the `Initialize Polish dictionaries` step first. The docker-compose file will use the dictionaries from the `data` directory.
+
