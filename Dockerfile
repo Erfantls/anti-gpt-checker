@@ -3,7 +3,7 @@ FROM python:3.10-slim
 
 # System dependencies (for pycld3 and spacy)
 RUN apt-get update && \
-    apt-get install -y libprotobuf-dev protobuf-compiler gcc g++ curl && \
+    apt-get install -y libprotobuf-dev protobuf-compiler gcc g++ curl default-jre && \
     rm -rf /var/lib/apt/lists/*
 
 # Set working directory
