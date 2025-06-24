@@ -6,6 +6,7 @@ services:
     volumes:
       - .:/app
       - ./data:/app/data
+      - ./api/histograms:/app/api/histograms
     env_file:
       - .docker-env
       - ./api/.docker-env

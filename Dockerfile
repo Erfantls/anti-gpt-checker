@@ -30,5 +30,8 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 # Add project files to the container
 COPY . .
 
+# Create a histograms directory inside the container
+RUN mkdir -p /app/api/histograms
+
 # Default command
 ENTRYPOINT ["bash", "api/run_with_uvicorn.sh"]
