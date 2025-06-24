@@ -1,5 +1,6 @@
 services:
   anti-gpt-api:
+    container_name: anti-gpt-api
     build: .
     ports:
       - "8989:8989"
