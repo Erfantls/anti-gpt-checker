@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   anti-gpt-api:
     build: .
@@ -9,5 +7,5 @@ services:
       - .:/app
       - ./data:/app/data
     env_file:
-      - .env
-      - ./api/.env
+      - .docker-env
+      - ./api/.docker-env
