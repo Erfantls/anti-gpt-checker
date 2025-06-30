@@ -1,4 +1,3 @@
-from datetime import timedelta, datetime
 from typing import Optional, Tuple
 
 from fastapi import Depends, APIRouter
@@ -7,17 +6,16 @@ from fastapi.responses import FileResponse
 from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DEBUG, API_MONGODB_DB_NAME, API_HISTOGRAMS_PATH
 from api.server_dao.analysis import DAOAsyncAnalysis
 from api.server_dao.document import DAOAsyncDocument
-from api.api_models.analysis import AnalysisInDB, AnalysisStatus, AnalysisData
+from api.api_models.analysis import AnalysisInDB, AnalysisData
 from api.api_models.request import LightbulbScoreRequestData
-from api.api_models.response import BackgroundTaskStatusResponse, BackgroundTaskRunningResponse, \
-    AnalysisResultsResponse, \
-    LightbulbScoreResponse, NoAnalysisFoundResponse, BackgroundTaskFailedResponse, NoAttributeFoundResponse, \
-    LightbulbScoreData, LightbulbScoreType, BackgroundTaskFinishedResponse
+from api.api_models.response import BackgroundTaskStatusResponse, AnalysisResultsResponse, \
+    LightbulbScoreResponse, NoAnalysisFoundResponse, NoAttributeFoundResponse, \
+    LightbulbScoreData, LightbulbScoreType
 from api.analyser import calculate_lightbulb_score, compare_2_hists
 from api.security import verify_token
+from api.utils import _validate_analysis, _handle_analysis_status
 
 from dao.attribute import DAOAsyncAttributePL
-from models.attribute import AttributePLInDB
 
 router = APIRouter()
 dao_analysis: DAOAsyncAnalysis = DAOAsyncAnalysis()
@@ -43,17 +41,10 @@ async def document_analysis_results(analysis_id: str, _: bool = Depends(verify_t
     else:
         return validation_result
 
-    # I dont understand why this is needed, but if its not done, the id is ObjectId and not MongoObjectId and FastAPI cannot serialize it
-    attribute_dict = attribute.dict()
-    attribute_dict["id"] = str(attribute.id)
-    attribute_dict["referenced_doc_id"] = str(attribute.referenced_doc_id)
+    analysis_data: AnalysisData = AnalysisData.from_analysis_and_attribute(analysis, attribute)
 
     return AnalysisResultsResponse(
-        analysis_data=AnalysisData(
-            analysis_id=analysis.analysis_id,
-            document_id=analysis.document_id,
-            full_features=attribute_dict
-        )
+        analysis_data=analysis_data
     )
 
 # this is closer to get endpoint, however, it is a post endpoint because it requires a body with attribute names
@@ -102,48 +93,3 @@ async def get_graph_image(analysis_id: str, attribute_name: str, _: bool = Depen
                     additional_value=attribute_dict[attribute_name])
     image_path = f"{API_HISTOGRAMS_PATH}/{analysis_id}_{attribute_name}.png"
     return FileResponse(image_path, media_type="image/png")
-
-
-def _handle_analysis_status(analysis: AnalysisInDB) -> BackgroundTaskStatusResponse:
-    if analysis.status == AnalysisStatus.FAILED:
-        return BackgroundTaskFailedResponse(
-            analysis_id=analysis.analysis_id,
-            document_id=analysis.document_id,
-            estimated_wait_time=0
-        )
-    elif analysis.status == AnalysisStatus.RUNNING:
-        estimated_end_time = analysis.start_time + timedelta(seconds=analysis.estimated_wait_time)
-        remaining_time = (estimated_end_time - datetime.now()).total_seconds()
-        if remaining_time < 10:
-            # if remaining time is less than 10 seconds, set it to 30 seconds
-            remaining_time = 30
-        return BackgroundTaskRunningResponse(
-            analysis_id=analysis.analysis_id,
-            document_id=analysis.document_id,
-            estimated_wait_time=remaining_time
-        )
-    elif analysis.status == AnalysisStatus.FINISHED:
-        return BackgroundTaskFinishedResponse(
-            analysis_id=analysis.analysis_id,
-            document_id=analysis.document_id,
-            estimated_wait_time=0
-        )
-    else:
-        raise Exception(f"Unknown analysis status: {analysis.status}")
-
-
-async def _validate_analysis(
-        analysis_id: str) -> Tuple[AnalysisInDB, AttributePLInDB] | NoAnalysisFoundResponse | BackgroundTaskStatusResponse | NoAttributeFoundResponse:
-    analysis: Optional[AnalysisInDB] = await dao_analysis.find_one_by_query({'analysis_id': analysis_id})
-    if not analysis:
-        return NoAnalysisFoundResponse()
-
-    if analysis.status != AnalysisStatus.FINISHED:
-        return _handle_analysis_status(analysis)
-
-    attribute: AttributePLInDB = await dao_attribute.find_by_id(analysis.attributes_id)
-    if not attribute:
-        return NoAttributeFoundResponse()
-
-    return analysis, attribute
-

@@ -1,6 +1,7 @@
 import traceback
 import hashlib
 from datetime import datetime
+from typing import Optional
 
 from fastapi import BackgroundTasks, Depends, APIRouter
 
@@ -12,7 +13,7 @@ from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DOCUMENTS_COLL
 from api.server_dao.analysis import DAOAsyncAnalysis, DAOAnalysis
 from api.server_dao.document import DAOAsyncDocument, DAODocument
 from api.api_models.analysis import Analysis, AnalysisType, AnalysisStatus
-from api.api_models.document import DocumentInDB, Document
+from api.api_models.document import DocumentInDB, Document, DocumentStatus
 from api.api_models.request import PreprocessedDocumentRequestData
 from api.security import verify_token
 from dao.attribute import DAOAttributePL
@@ -26,19 +27,23 @@ dao_async_document: DAOAsyncDocument = DAOAsyncDocument()
 @router.post("/add-document",
              response_model=dict | DocumentWithSpecifiedIDAlreadyExists
              )
-async def post_preprocess_document(preprocessed_document: PreprocessedDocumentRequestData,
-                                   _: bool = Depends(verify_token) if not API_DEBUG else True):
+async def post_document(preprocessed_document: PreprocessedDocumentRequestData,
+                        _: bool = Depends(verify_token) if not API_DEBUG else True):
     # Check if the document already exists
-    existing_doc = await dao_async_document.find_one_by_query({"document_id": preprocessed_document.document_id})
-    if existing_doc:
+    existing_doc: Optional[DocumentInDB] = await dao_async_document.find_one_by_query({"document_id": preprocessed_document.document_id})
+    if existing_doc and existing_doc.document_status == DocumentStatus.READY_FOR_ANALYSIS:
         return DocumentWithSpecifiedIDAlreadyExists()
-
-    document = Document(
-        document_id=preprocessed_document.document_id,
-        plaintext_content=preprocessed_document.preprocessed_content,
-        filepath=preprocessed_document.filepath
-    )
-    await dao_async_document.insert_one(document)
+    elif existing_doc:
+        await dao_async_document.update_one({"document_id": preprocessed_document.document_id},{
+        'plaintext_content':preprocessed_document.preprocessed_content,
+        'filepath':preprocessed_document.filepath})
+    else:
+        document = Document(
+            document_id=preprocessed_document.document_id,
+            plaintext_content=preprocessed_document.preprocessed_content,
+            filepath=preprocessed_document.filepath
+        )
+        await dao_async_document.insert_one(document)
     return {"message": f"Document with ID {preprocessed_document.document_id} has been inserted"}
 
 

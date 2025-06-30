@@ -4,6 +4,7 @@ from typing import Union, List
 from pydantic import BaseModel
 
 from api.api_models.analysis import AnalysisData, AnalysisStatus
+from api.api_models.document import DocumentInDB
 
 
 class NoAnalysisFoundResponse(BaseModel):
@@ -17,6 +18,10 @@ class NoAttributeFoundResponse(BaseModel):
 class NoDocumentFoundResponse(BaseModel):
     type = "no_document_found_response"
     message: str = "No document found with the specified ID"
+
+class NoUserFoundResponse(BaseModel):
+    type = "no_user_found_response"
+    message: str = "No user found with the specified ID"
 
 class DocumentWithSpecifiedIDAlreadyExists(BaseModel):
     type = "document_with_specified_id_already_exists"
@@ -69,3 +74,13 @@ class LightbulbScoreData(BaseModel):
 class LightbulbScoreResponse(BaseModel):
     type = "lightbulb_score_response"
     lightbulb_scores: List[LightbulbScoreData]
+
+class DocumentsOfUserResponse(BaseModel):
+    type = "documents_of_user_response"
+    message: str = "Documents of the user"
+    documents: List[DocumentInDB]  # List of documents
+
+class AnalysesOfDocumentsResponse(BaseModel):
+    type = "analyses_of_documents_response"
+    message: str = "Analyses of the documents"
+    analyses: List[AnalysisData]  # List of AnalysisData objects

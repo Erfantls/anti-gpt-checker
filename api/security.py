@@ -1,3 +1,7 @@
+import os
+import hashlib
+import base64
+
 from functools import lru_cache
 
 import httpx
@@ -51,3 +55,11 @@ async def verify_token(
 
     # 4. All good – you could also return resp.json() if you need user info
     return True
+
+def generate_salt(length: int = 16) -> str:
+    return base64.b64encode(os.urandom(length)).decode('utf-8')
+
+def hash_password_with_salt(password: str, salt: str) -> str:
+    salted = (password + salt).encode('utf-8')
+    hash_digest = hashlib.sha256(salted).digest()
+    return base64.b64encode(hash_digest).decode('utf-8')
