@@ -1,13 +1,13 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel
 
 
 
 class PreprocessedDocumentRequestData(BaseModel):
-    document_id: str
+    document_name: str
     preprocessed_content: str
-    filepath: str
+    filepath: Optional[str]
 
 class LightbulbScoreRequestData(BaseModel):
     attribute_names: List[str]

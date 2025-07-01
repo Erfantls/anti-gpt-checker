@@ -1,12 +1,16 @@
 from datetime import timedelta, datetime
 from typing import Tuple, Optional
 
-from api.analysis_fetcher import dao_analysis, dao_attribute
 from api.api_models.analysis import AnalysisInDB, AnalysisStatus
 from api.api_models.response import NoAnalysisFoundResponse, BackgroundTaskStatusResponse, NoAttributeFoundResponse, \
     BackgroundTaskFailedResponse, BackgroundTaskRunningResponse, BackgroundTaskFinishedResponse
+from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_MONGODB_DB_NAME
+from api.server_dao.analysis import DAOAsyncAnalysis
+from dao.attribute import DAOAsyncAttributePL
 from models.attribute import AttributePLInDB
 
+dao_analysis: DAOAsyncAnalysis = DAOAsyncAnalysis()
+dao_attribute: DAOAsyncAttributePL = DAOAsyncAttributePL(collection_name=API_ATTRIBUTES_COLLECTION_NAME, db_name=API_MONGODB_DB_NAME)
 
 async def _validate_analysis(
         analysis_id: str) -> Tuple[AnalysisInDB, AttributePLInDB] | NoAnalysisFoundResponse | BackgroundTaskStatusResponse | NoAttributeFoundResponse:
@@ -28,7 +32,7 @@ def _handle_analysis_status(analysis: AnalysisInDB) -> BackgroundTaskStatusRespo
     if analysis.status == AnalysisStatus.FAILED:
         return BackgroundTaskFailedResponse(
             analysis_id=analysis.analysis_id,
-            document_id=analysis.document_id,
+            document_id=analysis.document_hash,
             estimated_wait_time=0
         )
     elif analysis.status == AnalysisStatus.RUNNING:
@@ -39,13 +43,13 @@ def _handle_analysis_status(analysis: AnalysisInDB) -> BackgroundTaskStatusRespo
             remaining_time = 30
         return BackgroundTaskRunningResponse(
             analysis_id=analysis.analysis_id,
-            document_id=analysis.document_id,
+            document_id=analysis.document_hash,
             estimated_wait_time=remaining_time
         )
     elif analysis.status == AnalysisStatus.FINISHED:
         return BackgroundTaskFinishedResponse(
             analysis_id=analysis.analysis_id,
-            document_id=analysis.document_id,
+            document_id=analysis.document_hash,
             estimated_wait_time=0
         )
     else:

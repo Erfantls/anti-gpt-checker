@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import Depends, APIRouter, HTTPException, Body
 from bson import ObjectId
 
-from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DEBUG, API_MONGODB_DB_NAME, API_HISTOGRAMS_PATH
+from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DEBUG, API_MONGODB_DB_NAME
 
 from api.api_models.user import User, UserInDB, UserRole
 from api.api_models.document import DocumentInDB
@@ -98,7 +98,7 @@ async def get_documents_of_username(username: str, _: bool = Depends(verify_toke
     if not user:
         return NoUserFoundResponse()
 
-    documents: list[DocumentInDB] = await dao_document.find_many_by_query({'user_id': user.id})
+    documents: list[DocumentInDB] = await dao_document.find_many_by_query({'owner_id': user.id})
 
     return DocumentsOfUserResponse(documents=documents)
 
@@ -106,8 +106,17 @@ async def get_documents_of_username(username: str, _: bool = Depends(verify_toke
 @router.get("/get-document",
             response_model=DocumentInDB | NoDocumentFoundResponse)
 async def get_document(document_id: str, _: bool = Depends(verify_token) if not API_DEBUG else True):
-    document: Optional[DocumentInDB] = await dao_document.find_one_by_query({'document_id': document_id})
-    if not document_id:
+    document: Optional[DocumentInDB] = await dao_document.find_by_id(document_id)
+    if not document:
+        return NoDocumentFoundResponse()
+
+    return document
+
+@router.get("/get-document-by-hash",
+            response_model=DocumentInDB | NoDocumentFoundResponse)
+async def get_document_by_hash(document_hash: str, _: bool = Depends(verify_token) if not API_DEBUG else True):
+    document: Optional[DocumentInDB] = await dao_document.find_one_by_query({'document_hash': document_hash})
+    if not document:
         return NoDocumentFoundResponse()
 
     return document
@@ -116,19 +125,30 @@ async def get_document(document_id: str, _: bool = Depends(verify_token) if not 
 @router.get("/get-analysis-of-document",
             response_model=AnalysesOfDocumentsResponse)
 async def get_analyses_of_document(document_id: str, _: bool = Depends(verify_token) if not API_DEBUG else True):
-    analyses: list[AnalysisInDB] = await dao_analysis.find_many_by_query({'document_id': document_id})
+    document: Optional[DocumentInDB] = await dao_document.find_by_id(document_id)
+    if not document:
+        return NoDocumentFoundResponse()
+    return await _get_analyses_of_document_by_hash(document.document_hash)
+
+@router.get("/get-analysis-of-document-by-hash",
+            response_model=AnalysesOfDocumentsResponse)
+async def get_analyses_of_document_by_hash(document_hash: str, _: bool = Depends(verify_token) if not API_DEBUG else True):
+    return await _get_analyses_of_document_by_hash(document_hash)
+
+async def _get_analyses_of_document_by_hash(document_hash: str):
+    analyses: list[AnalysisInDB] = await dao_analysis.find_many_by_query({'document_hash': document_hash})
 
     analyses_data = []
     for analysis in analyses:
         if analysis.status != AnalysisStatus.FINISHED:
             analyses_data.append(
-                AnalysisData(analysis_id=analysis.analysis_id, document_id=analysis.document_id, full_features={}))
+                AnalysisData(analysis_id=analysis.analysis_id, document_hash=analysis.document_hash, full_features={}))
             continue
 
         attribute: AttributePLInDB = await dao_attribute.find_by_id(analysis.attributes_id)
         if not attribute:
             analyses_data.append(
-                AnalysisData(analysis_id=analysis.analysis_id, document_id=analysis.document_id, full_features={}))
+                AnalysisData(analysis_id=analysis.analysis_id, document_hash=analysis.document_hash, full_features={}))
             continue
 
         analyses_data.append(AnalysisData.from_analysis_and_attribute(analysis, attribute))

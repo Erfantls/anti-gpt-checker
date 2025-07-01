@@ -30,9 +30,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # add the routers
-app.include_router(analysis_fetcher_router, prefix="/results")
-app.include_router(feature_extraction_router, prefix="/analysis")
-app.include_router(db_router, prefix="/db-operations")
+app.include_router(analysis_fetcher_router, prefix="/results", tags=["Results"])
+app.include_router(feature_extraction_router, prefix="/analysis", tags=["Feature Extraction"])
+app.include_router(db_router, prefix="/db-operations", tags=["Database Operations"])
 
 app.add_middleware(
     CORSMiddleware,

@@ -8,48 +8,48 @@ from api.api_models.document import DocumentInDB
 
 
 class NoAnalysisFoundResponse(BaseModel):
-    type = "no_analysis_found_response"
+    type: str = "no_analysis_found_response"
     message: str = "No analysis found with the specified ID"
 
 class NoAttributeFoundResponse(BaseModel):
-    type = "no_attribute_found_response"
+    type: str = "no_attribute_found_response"
     message: str = "No attribute found with the specified ID"
 
 class NoDocumentFoundResponse(BaseModel):
-    type = "no_document_found_response"
+    type: str = "no_document_found_response"
     message: str = "No document found with the specified ID"
 
 class NoUserFoundResponse(BaseModel):
-    type = "no_user_found_response"
+    type: str = "no_user_found_response"
     message: str = "No user found with the specified ID"
 
 class DocumentWithSpecifiedIDAlreadyExists(BaseModel):
-    type = "document_with_specified_id_already_exists"
+    type: str = "document_with_specified_id_already_exists"
     message: str = "Document with the specified ID already exists, please use a different ID"
 
 
 class BackgroundTaskFailedResponse(BaseModel):
-    type = "failed_to_extract_data_response"
+    type: str = "failed_to_extract_data_response"
     message: str = "Failed to extract attributes from the given document"
-    status = AnalysisStatus.FAILED
+    status: AnalysisStatus = AnalysisStatus.FAILED
     document_id: str
     estimated_wait_time: int = 0
     analysis_id: str
 
 
 class BackgroundTaskRunningResponse(BaseModel):
-    type = "background_task_running_response"
+    type: str = "background_task_running_response"
     message: str = "Background task is running, please wait the given wait-time and call document-analysis-result endpoint with the given analysis_id"
-    status = AnalysisStatus.RUNNING
+    status: AnalysisStatus = AnalysisStatus.RUNNING
     document_id: str
     estimated_wait_time: int
     analysis_id: str
 
 
 class BackgroundTaskFinishedResponse(BaseModel):
-    type = "background_task_finished_response"
+    type: str = "background_task_finished_response"
     message: str = "Background task is finished"
-    status = AnalysisStatus.FINISHED
+    status: AnalysisStatus = AnalysisStatus.FINISHED
     document_id: str
     estimated_wait_time: int = 0
     analysis_id: str
@@ -57,7 +57,7 @@ class BackgroundTaskFinishedResponse(BaseModel):
 BackgroundTaskStatusResponse = Union[BackgroundTaskRunningResponse, BackgroundTaskFinishedResponse, BackgroundTaskFailedResponse]
 
 class AnalysisResultsResponse(BaseModel):
-    type = "analysis_results_response"
+    type: str = "analysis_results_response"
     message: str = "Analysis results"
     analysis_data: AnalysisData
 
@@ -72,15 +72,15 @@ class LightbulbScoreData(BaseModel):
     score: float
 
 class LightbulbScoreResponse(BaseModel):
-    type = "lightbulb_score_response"
+    type: str = "lightbulb_score_response"
     lightbulb_scores: List[LightbulbScoreData]
 
 class DocumentsOfUserResponse(BaseModel):
-    type = "documents_of_user_response"
+    type: str = "documents_of_user_response"
     message: str = "Documents of the user"
     documents: List[DocumentInDB]  # List of documents
 
 class AnalysesOfDocumentsResponse(BaseModel):
-    type = "analyses_of_documents_response"
+    type: str = "analyses_of_documents_response"
     message: str = "Analyses of the documents"
     analyses: List[AnalysisData]  # List of AnalysisData objects

@@ -30,40 +30,43 @@ dao_async_document: DAOAsyncDocument = DAOAsyncDocument()
 async def post_document(preprocessed_document: PreprocessedDocumentRequestData,
                         _: bool = Depends(verify_token) if not API_DEBUG else True):
     # Check if the document already exists
-    existing_doc: Optional[DocumentInDB] = await dao_async_document.find_one_by_query({"document_id": preprocessed_document.document_id})
+    document_hash = hashlib.sha256((preprocessed_document.document_name + preprocessed_document.preprocessed_content).encode()).hexdigest()
+    existing_doc: Optional[DocumentInDB] = await dao_async_document.find_one_by_query({"document_hash": document_hash})
     if existing_doc and existing_doc.document_status == DocumentStatus.READY_FOR_ANALYSIS:
         return DocumentWithSpecifiedIDAlreadyExists()
     elif existing_doc:
-        await dao_async_document.update_one({"document_id": preprocessed_document.document_id},{
+        await dao_async_document.update_one({"document_name": preprocessed_document.document_name}, {
         'plaintext_content':preprocessed_document.preprocessed_content,
         'filepath':preprocessed_document.filepath})
     else:
         document = Document(
-            document_id=preprocessed_document.document_id,
+            document_name=preprocessed_document.document_name,
+            document_status=DocumentStatus.READY_FOR_ANALYSIS,
+            document_hash=document_hash,
             plaintext_content=preprocessed_document.preprocessed_content,
             filepath=preprocessed_document.filepath
         )
         await dao_async_document.insert_one(document)
-    return {"message": f"Document with ID {preprocessed_document.document_id} has been inserted"}
+    return {"message": f"Document with name {preprocessed_document.document_name} has been inserted"}
 
 
 @router.post("/trigger-analysis",
              response_model=dict)
-async def trigger_document_analysis(document_id: str, background_tasks: BackgroundTasks,
+async def trigger_document_analysis(document_hash: str, background_tasks: BackgroundTasks,
                                     perform_full_analysis: bool = False, _: bool = Depends(verify_token) if not API_DEBUG else True):
     # generate analysis_id
-    analysis_id = hashlib.sha256(f"{document_id}_{datetime.now().isoformat()}".encode()).hexdigest()
+    analysis_id = hashlib.sha256(f"{document_hash}_{datetime.now().isoformat()}".encode()).hexdigest()
     analysis = Analysis(
         analysis_id=analysis_id,
         type=AnalysisType.FULL if perform_full_analysis else AnalysisType.PARTIAL,
         status=AnalysisStatus.RUNNING,
-        document_id=document_id,
+        document_hash=document_hash,
         estimated_wait_time=30,
         start_time=datetime.now()
     )
     await dao_async_analysis.insert_one(analysis)
-    background_tasks.add_task(_perform_analysis, analysis_id, document_id)
-    return {"message": f"Analysis of document {document_id} has been triggered",
+    background_tasks.add_task(_perform_analysis, analysis_id, document_hash)
+    return {"message": f"Analysis of document {document_hash} has been triggered",
             "analysis_id": str(analysis_id)}
 
 
@@ -71,8 +74,8 @@ dao_analysis: DAOAnalysis = DAOAnalysis()
 dao_document: DAODocument = DAODocument()
 dao_attribute: DAOAttributePL = DAOAttributePL(collection_name=API_ATTRIBUTES_COLLECTION_NAME, db_name=API_MONGODB_DB_NAME)
 
-def _perform_analysis(analysis_id: str, document_id):
-    document: DocumentInDB = dao_document.find_one_by_query({'document_id': document_id})
+def _perform_analysis(analysis_id: str, document_hash):
+    document: DocumentInDB = dao_document.find_one_by_query({'document_hash': document_hash})
     try:
         text_to_analyse = preprocess_text(document.plaintext_content)
         analysis_result = perform_full_analysis(text_to_analyse, 'pl')

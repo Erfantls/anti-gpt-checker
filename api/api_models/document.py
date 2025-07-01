@@ -13,8 +13,9 @@ class DocumentStatus(str, Enum):
 
 class Document(BaseModel):
     plaintext_content: Optional[str]
-    filepath: str
-    document_id: Optional[str]
+    filepath: Optional[str]
+    document_name: Optional[str]
+    document_hash: Optional[str]
     document_status: Optional[DocumentStatus] = DocumentStatus.READY_FOR_ANALYSIS
     owner_id: Optional[MongoObjectId] = None
 
