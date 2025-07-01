@@ -4,8 +4,11 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
 from api.analyser import load_reference_attributes
+
 from api.analysis_fetcher import router as analysis_fetcher_router
 from api.feature_extraction import router as feature_extraction_router
+from api.db_calls import router as db_router
+
 from config import init_all_polish_models
 from services.utils import suppress_stdout
 
@@ -26,9 +29,10 @@ async def lifespan(app: FastAPI):
     yield
 app = FastAPI(lifespan=lifespan)
 
-# add the routers, choose prefixes if you wish
+# add the routers
 app.include_router(analysis_fetcher_router, prefix="/results")
 app.include_router(feature_extraction_router, prefix="/analysis")
+app.include_router(db_router, prefix="/db-operations")
 
 app.add_middleware(
     CORSMiddleware,

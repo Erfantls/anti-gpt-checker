@@ -3,14 +3,13 @@ from typing import Optional
 from fastapi import Depends, APIRouter, HTTPException, Body
 from bson import ObjectId
 
-
 from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DEBUG, API_MONGODB_DB_NAME, API_HISTOGRAMS_PATH
 
 from api.api_models.user import User, UserInDB, UserRole
-from api.api_models.document import Document, DocumentInDB
-from api.api_models.analysis import Analysis, AnalysisInDB, AnalysisStatus, AnalysisData
-from api.api_models.response import BackgroundTaskStatusResponse, BackgroundTaskRunningResponse, NoUserFoundResponse, \
-    DocumentsOfUserResponse, NoDocumentFoundResponse, AnalysesOfDocumentsResponse
+from api.api_models.document import DocumentInDB
+from api.api_models.analysis import AnalysisInDB, AnalysisStatus, AnalysisData
+from api.api_models.response import NoUserFoundResponse, DocumentsOfUserResponse, NoDocumentFoundResponse, \
+    AnalysesOfDocumentsResponse
 
 from api.security import verify_token, generate_salt, hash_password_with_salt
 
@@ -24,7 +23,9 @@ router = APIRouter()
 dao_user: DAOAsyncUser = DAOAsyncUser()
 dao_document: DAOAsyncDocument = DAOAsyncDocument()
 dao_analysis: DAOAsyncAnalysis = DAOAsyncAnalysis()
-dao_attribute: DAOAsyncAttributePL = DAOAsyncAttributePL(collection_name=API_ATTRIBUTES_COLLECTION_NAME, db_name=API_MONGODB_DB_NAME)
+dao_attribute: DAOAsyncAttributePL = DAOAsyncAttributePL(collection_name=API_ATTRIBUTES_COLLECTION_NAME,
+                                                         db_name=API_MONGODB_DB_NAME)
+
 
 @router.get("/get-user-by-email",
             response_model=UserInDB | NoUserFoundResponse)
@@ -48,6 +49,7 @@ async def get_user_by_id(user_id: str, _: bool = Depends(verify_token) if not AP
 
     return user
 
+
 @router.get("/get-user-by-username",
             response_model=UserInDB | NoUserFoundResponse)
 async def get_user_by_username(username: str, _: bool = Depends(verify_token) if not API_DEBUG else True):
@@ -60,10 +62,10 @@ async def get_user_by_username(username: str, _: bool = Depends(verify_token) if
 
 @router.post("/create-user", response_model=UserInDB)
 async def create_user(
-    username: str = Body(...),
-    email: str = Body(...),
-    password: str = Body(...),
-    _: bool = Depends(verify_token) if not API_DEBUG else True
+        username: str = Body(...),
+        email: str = Body(...),
+        password: str = Body(...),
+        _: bool = Depends(verify_token) if not API_DEBUG else True
 ):
     existing_user = await dao_user.find_one_by_query({'email': email})
     if existing_user:
@@ -88,6 +90,7 @@ async def create_user(
 
     return user_in_db
 
+
 @router.get("/get-documents-of-user",
             response_model=DocumentsOfUserResponse | NoUserFoundResponse)
 async def get_documents_of_username(username: str, _: bool = Depends(verify_token) if not API_DEBUG else True):
@@ -109,6 +112,7 @@ async def get_document(document_id: str, _: bool = Depends(verify_token) if not 
 
     return document
 
+
 @router.get("/get-analysis-of-document",
             response_model=AnalysesOfDocumentsResponse)
 async def get_analyses_of_document(document_id: str, _: bool = Depends(verify_token) if not API_DEBUG else True):
@@ -117,7 +121,8 @@ async def get_analyses_of_document(document_id: str, _: bool = Depends(verify_to
     analyses_data = []
     for analysis in analyses:
         if analysis.status != AnalysisStatus.FINISHED:
-            analyses_data.append(AnalysisData(analysis_id=analysis.analysis_id, document_id=analysis.document_id, full_features={}))
+            analyses_data.append(
+                AnalysisData(analysis_id=analysis.analysis_id, document_id=analysis.document_id, full_features={}))
             continue
 
         attribute: AttributePLInDB = await dao_attribute.find_by_id(analysis.attributes_id)
@@ -129,5 +134,3 @@ async def get_analyses_of_document(document_id: str, _: bool = Depends(verify_to
         analyses_data.append(AnalysisData.from_analysis_and_attribute(analysis, attribute))
 
     return AnalysesOfDocumentsResponse(analyses=analyses_data)
-
-
