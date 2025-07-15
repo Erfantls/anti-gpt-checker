@@ -1,10 +1,11 @@
-from enum import Enum
 from typing import Union, List
 
 from pydantic import BaseModel
 
-from api.api_models.analysis import AnalysisData, AnalysisStatus
+from api.api_models.analysis import AnalysisData, AnalysisStatus, AnalysisInDB
 from api.api_models.document import DocumentInDB
+from api.api_models.lightbulb_score import LightbulbScoreData
+from models.attribute import AttributeInDB
 
 
 class NoAnalysisFoundResponse(BaseModel):
@@ -19,13 +20,18 @@ class NoDocumentFoundResponse(BaseModel):
     type: str = "no_document_found_response"
     message: str = "No document found with the specified ID"
 
-class NoUserFoundResponse(BaseModel):
-    type: str = "no_user_found_response"
-    message: str = "No user found with the specified ID"
+class DocumentPreprocessingStillRunningResponse(BaseModel):
+    type: str = "DocumentPreprocessingStillRunningResponse"
+    message: str = "Document preprocessing is still running, please wait and try again later"
 
-class DocumentWithSpecifiedIDAlreadyExists(BaseModel):
-    type: str = "document_with_specified_id_already_exists"
-    message: str = "Document with the specified ID already exists, please use a different ID"
+class DocumentPreprocessingFinishedResponse(BaseModel):
+    type: str = "DocumentPreprocessingFinishedResponse"
+    message: str = "Document preprocessing is finished, you can now analyze the document"
+
+
+class DocumentWithSpecifiedHashAlreadyExists(BaseModel):
+    type: str = "document_with_specified_hash_already_exists"
+    message: str = "Document with the specified hash already exists, please use a different ID"
 
 
 class BackgroundTaskFailedResponse(BaseModel):
@@ -61,15 +67,6 @@ class AnalysisResultsResponse(BaseModel):
     message: str = "Analysis results"
     analysis_data: AnalysisData
 
-class LightbulbScoreType(str, Enum):
-    BIDIRECTIONAL = "bidirectional" # score [-1,1]
-    HUMAN_WRITTEN = "human_written" # score [-1,0]
-    LLM_GENERATED = "llm_generated" # score [0,1]
-
-class LightbulbScoreData(BaseModel):
-    attribute_name: str
-    type: LightbulbScoreType
-    score: float
 
 class LightbulbScoreResponse(BaseModel):
     type: str = "lightbulb_score_response"
@@ -79,6 +76,20 @@ class DocumentsOfUserResponse(BaseModel):
     type: str = "documents_of_user_response"
     message: str = "Documents of the user"
     documents: List[DocumentInDB]  # List of documents
+
+class AnalysisWithLightbulbs(BaseModel):
+    analysis: AnalysisInDB  # Analysis object
+    attribute_in_db: AttributeInDB
+    lightbulb_scores: List[LightbulbScoreData]  # Lightbulb scores associated with the analysis
+
+class DocumentWithAnalysis(BaseModel):
+    document: DocumentInDB  # Document object
+    analyses_with_lightbulbs: List[AnalysisWithLightbulbs]
+
+class DocumentsOfUserWithAnalysisResponse(BaseModel):
+    type: str = "documents_of_user_with_analysis_response"
+    message: str = "Documents of the user with analyses"
+    documents_with_analyses: List[DocumentWithAnalysis]  # List of documents
 
 class AnalysesOfDocumentsResponse(BaseModel):
     type: str = "analyses_of_documents_response"

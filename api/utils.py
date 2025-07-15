@@ -1,10 +1,12 @@
 from datetime import timedelta, datetime
 from typing import Tuple, Optional
 
+from api.analyser import calculate_lightbulb_score
 from api.api_models.analysis import AnalysisInDB, AnalysisStatus
+from api.api_models.lightbulb_score import LightbulbScoreType, LightbulbScoreData
 from api.api_models.response import NoAnalysisFoundResponse, BackgroundTaskStatusResponse, NoAttributeFoundResponse, \
     BackgroundTaskFailedResponse, BackgroundTaskRunningResponse, BackgroundTaskFinishedResponse
-from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_MONGODB_DB_NAME
+from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_MONGODB_DB_NAME, API_LIGHTBULBS_SCORES_PARAMETERS
 from api.server_dao.analysis import DAOAsyncAnalysis
 from dao.attribute import DAOAsyncAttributePL
 from models.attribute import AttributePLInDB
@@ -54,3 +56,26 @@ def _handle_analysis_status(analysis: AnalysisInDB) -> BackgroundTaskStatusRespo
         )
     else:
         raise Exception(f"Unknown analysis status: {analysis.status}")
+
+
+async def calculate_lightbulb_scores(attribute, attribute_names) -> list[LightbulbScoreData]:
+    attribute_dict = attribute.to_flat_dict_normalized()
+    lightbulb_score_data = []
+    for attribute_name in attribute_names:
+        if attribute_name not in attribute_dict:
+            continue
+
+        if attribute_name in API_LIGHTBULBS_SCORES_PARAMETERS:
+            category = API_LIGHTBULBS_SCORES_PARAMETERS[attribute_name].type
+        else: # default to BIDIRECTIONAL if not specified
+            category = LightbulbScoreType.BIDIRECTIONAL
+
+        attribute_value = attribute_dict[attribute_name]
+        lightbulb_score_value = calculate_lightbulb_score(attribute_value, attribute_name,
+                                                          category=category)
+        lightbulb_score_data.append(LightbulbScoreData(
+            attribute_name=attribute_name,
+            type=LightbulbScoreType.BIDIRECTIONAL,
+            score=lightbulb_score_value
+        ))
+    return lightbulb_score_data

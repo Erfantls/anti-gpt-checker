@@ -5,7 +5,7 @@ from scipy.stats import gaussian_kde
 from matplotlib import pyplot as plt
 
 from api.server_config import API_ATTRIBUTES_REFERENCE_COLLECTION_NAME, API_MONGODB_DB_NAME, API_HISTOGRAMS_PATH
-from api.api_models.response import LightbulbScoreType
+from api.api_models.lightbulb_score import LightbulbScoreType
 from dao.attribute import DAOAttributePL
 from models.attribute import AttributePLInDB
 

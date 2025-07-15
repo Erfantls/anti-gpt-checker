@@ -1,60 +1,86 @@
 import os
 import hashlib
+import hmac
+import json
 import base64
 
 from functools import lru_cache
 
 import httpx
-from fastapi import HTTPException, Security, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException, Security, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from api.server_config import API_WEB_APP_IP, API_WEB_APP_PORT
+from api.server_config import API_WEB_APP_IP, API_WEB_APP_PORT, API_SHARED_SECRET_KEY
 
 security = HTTPBearer(auto_error=False)
 
-@lru_cache
-def _verify_url() -> str:
-    """Build the auth-service URL once and cache it."""
-    return f"http://{API_WEB_APP_IP}:{API_WEB_APP_PORT}/api/token/verify/"
+def _decode_token(raw_token: str) -> dict:
+    """
+    Bearer value is expected to be a URL‑safe base64 string
+    that decodes to a JSON object holding
+    {
+        "User":  "<user_id>",
+        "Nonce": "<cryptographic_nonce>",
+        "Auth":  "<hex_digest>"
+    }
+    """
+    try:
+        padded = raw_token + "=" * (-len(raw_token) % 4)      # base64 padding
+        data = base64.urlsafe_b64decode(padded).decode()
+        return json.loads(data)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Malformed bearer token",
+        )
 
+def _expected_signature(user_id: str, nonce: str) -> str:
+    payload = f"{user_id}:{nonce}".encode()
+    key = API_SHARED_SECRET_KEY.encode()
+    sig = hmac.new(key, payload, hashlib.sha256).hexdigest()
+    return sig
 
-# ── Dependency ────────────────────────────────────────────────────────────────
 async def verify_token(
     credentials: HTTPAuthorizationCredentials | None = Security(security),
-) -> bool:
+) -> str:
     """
-    Dependency to be added via `Depends(verify_token)`.
+    Dependency to be added via Depends(verify_token).
 
-    On success it simply returns `True`. On failure it raises the appropriate
-    HTTPException, so the request never reaches your endpoint logic.
+    On success it returns the user_id that was authenticated.
+    On failure it raises an HTTPException so the request never
+    reaches your endpoint logic.
     """
-    # 1. No / malformed `Authorization` header
-    if credentials is None or not credentials.scheme.lower() == "bearer":
+    # 1. Missing or non‑bearer Authorization header
+    if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or invalid Authorization header",
         )
 
-    # 2. Ask the auth service to verify the token
-    async with httpx.AsyncClient(timeout=5.0) as client:
-        try:
-            resp = await client.post(_verify_url(), json={"token": credentials.credentials})
-        except httpx.RequestError:
-            # Upstream auth service is down or unreachable
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Authorization service unavailable, try again later",
-            )
+    # 2. Decode, validate structure, compute expected HMAC
+    token_fields = _decode_token(credentials.credentials)
 
-    # 3. Token rejected by auth service
-    if resp.status_code != status.HTTP_200_OK:
+    try:
+        user_id = token_fields["User"]
+        nonce = token_fields["Nonce"]
+        received_sig = token_fields["Auth"]
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token is missing required fields",
+        )
+
+    expected_sig = _expected_signature(user_id, nonce)
+
+    # 3. Constant‑time comparison to avoid timing attacks
+    if not hmac.compare_digest(received_sig, expected_sig):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token is invalid or expired",
         )
 
-    # 4. All good – you could also return resp.json() if you need user info
-    return True
+    # 4. All good
+    return user_id
 
 def generate_salt(length: int = 16) -> str:
     return base64.b64encode(os.urandom(length)).decode('utf-8')
