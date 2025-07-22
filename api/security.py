@@ -4,13 +4,10 @@ import hmac
 import json
 import base64
 
-from functools import lru_cache
-
-import httpx
-from fastapi import Depends, HTTPException, Security, status
+from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from api.server_config import API_WEB_APP_IP, API_WEB_APP_PORT, API_SHARED_SECRET_KEY
+from api.server_config import API_SHARED_SECRET_KEY
 
 security = HTTPBearer(auto_error=False)
 
@@ -80,7 +77,7 @@ async def verify_token(
         )
 
     # 4. All good
-    return user_id
+    return str(user_id)
 
 def generate_salt(length: int = 16) -> str:
     return base64.b64encode(os.urandom(length)).decode('utf-8')
