@@ -24,6 +24,7 @@ router = APIRouter()
 dao_async_analysis: DAOAsyncAnalysis = DAOAsyncAnalysis()
 dao_async_document: DAOAsyncDocument = DAOAsyncDocument()
 
+
 @router.post("/add-document",
              response_model=dict,
              status_code=status.HTTP_201_CREATED
@@ -31,7 +32,8 @@ dao_async_document: DAOAsyncDocument = DAOAsyncDocument()
 async def post_document(preprocessed_document: PreprocessedDocumentRequestData,
                         user_id: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
     # Check if the document already exists
-    existing_doc: Optional[DocumentInDB] = await dao_async_document.find_one_by_query({"document_hash": preprocessed_document.document_hash, "owner_id": user_id})
+    existing_doc: Optional[DocumentInDB] = await dao_async_document.find_one_by_query(
+        {"document_hash": preprocessed_document.document_hash, "owner_id": user_id})
     if existing_doc:
         raise HTTPException(
             status_code=409,
@@ -51,35 +53,46 @@ async def post_document(preprocessed_document: PreprocessedDocumentRequestData,
         await dao_async_document.insert_one(document)
     return {"message": f"Document with name {preprocessed_document.document_name} has been inserted"}
 
+
 @router.patch("/update-document",
-             response_model=dict,
-             status_code=status.HTTP_200_OK
-             )
+              response_model=dict,
+              status_code=status.HTTP_200_OK
+              )
 async def update_document(preprocessed_document: PreprocessedDocumentRequestData,
-                        user_id: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
+                          user_id: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
     # Check if the document already exists
-    existing_doc: Optional[DocumentInDB] = await dao_async_document.find_one_by_query({"document_hash": preprocessed_document.document_hash, "owner_id": user_id})
+    existing_doc: Optional[DocumentInDB] = await dao_async_document.find_one_by_query(
+        {"document_hash": preprocessed_document.document_hash, "owner_id": user_id})
     if not existing_doc:
         raise HTTPException(
             status_code=404,
             detail="Document with the specified hash does not exist"
         )
     else:
-        await dao_async_document.update_one({"document_hash": preprocessed_document.document_hash,"owner_id": user_id},
-    {'$set':{
-            'document_name': preprocessed_document.document_name,
-            'plaintext_content':preprocessed_document.preprocessed_content,
-            'document_status': DocumentStatus.READY_FOR_ANALYSIS if preprocessed_document.preprocessed_content is not None else DocumentStatus.PREPROCESS_RUNNING,
-            'filepath':preprocessed_document.filepath,
-            'updated_at': datetime.now()
-        }})
+        set_fields = {}
+        if existing_doc.plaintext_content:
+            set_fields['document_status'] = DocumentStatus.READY_FOR_ANALYSIS
+        else:
+            set_fields['document_status'] = DocumentStatus.PREPROCESS_RUNNING
+
+        for field in preprocessed_document.dict():
+            if preprocessed_document.dict()[field] is not None:
+                set_fields[field] = preprocessed_document.dict()[field]
+                if field == 'preprocessed_content':
+                    set_fields['document_status'] = DocumentStatus.READY_FOR_ANALYSIS
+
+        set_fields['updated_at'] = datetime.now()
+
+        await dao_async_document.update_one({"document_hash": preprocessed_document.document_hash, "owner_id": user_id},
+                                            {'$set': set_fields})
     return {"message": f"Document with name {preprocessed_document.document_name} has been updated"}
 
 
 @router.post("/trigger-analysis",
              response_model=dict)
 async def trigger_document_analysis(document_hash: str, background_tasks: BackgroundTasks,
-                                    perform_full_analysis: bool = False, user_id: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
+                                    perform_full_analysis: bool = False,
+                                    user_id: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
     # generate analysis_id
     analysis_id = hashlib.sha256(f"{document_hash}_{user_id}_{datetime.now().isoformat()}".encode()).hexdigest()
     analysis = Analysis(
@@ -98,7 +111,9 @@ async def trigger_document_analysis(document_hash: str, background_tasks: Backgr
 
 dao_analysis: DAOAnalysis = DAOAnalysis()
 dao_document: DAODocument = DAODocument()
-dao_attribute: DAOAttributePL = DAOAttributePL(collection_name=API_ATTRIBUTES_COLLECTION_NAME, db_name=API_MONGODB_DB_NAME)
+dao_attribute: DAOAttributePL = DAOAttributePL(collection_name=API_ATTRIBUTES_COLLECTION_NAME,
+                                               db_name=API_MONGODB_DB_NAME)
+
 
 def _perform_analysis(analysis_id: str, document_hash, user_id: str):
     document: DocumentInDB = dao_document.find_one_by_query({'document_hash': document_hash, 'owner_id': user_id})
@@ -114,10 +129,9 @@ def _perform_analysis(analysis_id: str, document_hash, user_id: str):
             **analysis_result.dict()
         )
         attributes_id = dao_attribute.insert_one(attribute_to_insert)
-        dao_analysis.update_one({'analysis_id': analysis_id}, {'$set': {'status': AnalysisStatus.FINISHED, "attributes_id": attributes_id}})
+        dao_analysis.update_one({'analysis_id': analysis_id},
+                                {'$set': {'status': AnalysisStatus.FINISHED, "attributes_id": attributes_id}})
     except Exception as e:
         dao_analysis.update_one({'analysis_id': analysis_id}, {'$set':
                                                                    {'status': AnalysisStatus.FAILED,
                                                                     'error_message': traceback.format_exc()}})
-
-
