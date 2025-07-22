@@ -1,4 +1,4 @@
-from typing import Union, List
+from typing import Union, List, Literal, Optional
 
 from pydantic import BaseModel
 
@@ -83,3 +83,18 @@ class AnalysesOfDocumentsResponse(BaseModel):
     type: str = "analyses_of_documents_response"
     message: str = "Analyses of the documents"
     analyses: List[AnalysisData]  # List of AnalysisData objects
+
+
+class HistogramData(BaseModel):
+    feature: str
+    data_type: Literal["llm-generated", "human-written"]
+    bins: List[float]      # bin edges
+    counts: List[int]      # histogram counts per bin
+
+class HistogramDataDTO(BaseModel):
+    llm: HistogramData
+    human: HistogramData
+    additional_value: Optional[float] = None
+    min_value: float
+    max_value: float
+    num_bins: int

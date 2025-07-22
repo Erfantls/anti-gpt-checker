@@ -1,6 +1,6 @@
 from typing import Optional, Tuple
 
-from fastapi import Depends, APIRouter, HTTPException, status
+from fastapi import Depends, APIRouter, HTTPException, status, Query
 from fastapi.responses import FileResponse
 
 from api.api_models.document import DocumentInDB, DocumentStatus
@@ -11,8 +11,9 @@ from api.server_dao.document import DAOAsyncDocument
 from api.api_models.analysis import AnalysisInDB, AnalysisData
 from api.api_models.request import LightbulbScoreRequestData
 from api.api_models.response import BackgroundTaskStatusResponse, AnalysisResultsResponse, \
-    LightbulbScoreResponse, DocumentPreprocessingStillRunningResponse, DocumentPreprocessingFinishedResponse
-from api.analyser import compare_2_hists
+    LightbulbScoreResponse, DocumentPreprocessingStillRunningResponse, DocumentPreprocessingFinishedResponse, \
+    HistogramDataDTO
+from api.analyser import compare_2_hists, compute_histogram_data
 from api.security import verify_token
 from api.utils import _validate_analysis, _handle_analysis_status, calculate_lightbulb_scores
 
@@ -98,7 +99,7 @@ async def lightbulb_score(analysis_id: str, request_data: LightbulbScoreRequestD
     )
 
 
-@router.get("/graph-image",
+@router.get("/histogram-image",
             status_code=status.HTTP_200_OK)
 async def get_graph_image(analysis_id: str, attribute_name: str,
                           _: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
@@ -119,3 +120,33 @@ async def get_graph_image(analysis_id: str, attribute_name: str,
                     additional_value=attribute_dict[attribute_name])
     image_path = f"{API_HISTOGRAMS_PATH}/{analysis_id}_{attribute_name}.png"
     return FileResponse(image_path, media_type="image/png")
+
+@router.get("/histogram-data", response_model=HistogramDataDTO, status_code=status.HTTP_200_OK)
+async def get_graph_summary(
+        analysis_id: str,
+        attribute_name: str,
+        num_bins: int = Query(21, gt=1, le=100),
+        min_value: Optional[float] = Query(None),
+        max_value: Optional[float] = Query(None),
+        _: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
+    validation_result = await _validate_analysis(analysis_id)
+    if isinstance(validation_result, Tuple):
+        analysis, attribute = validation_result
+    else:
+        return validation_result
+
+    attribute_dict = attribute.to_flat_dict_normalized()
+    if attribute_name not in attribute_dict:
+        raise HTTPException(
+            status_code=404,
+            detail="No attributes found connected with the analysis"
+        )
+
+    result = compute_histogram_data(
+        attribute_name=attribute_name,
+        num_bin=num_bins,
+        min_value=min_value,
+        max_value=max_value,
+        additional_value=attribute_dict[attribute_name]
+    )
+    return result

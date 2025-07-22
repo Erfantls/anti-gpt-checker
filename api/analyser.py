@@ -4,6 +4,7 @@ import numpy as np
 from scipy.stats import gaussian_kde
 from matplotlib import pyplot as plt
 
+from api.api_models.response import HistogramData, HistogramDataDTO
 from api.server_config import API_ATTRIBUTES_REFERENCE_COLLECTION_NAME, API_MONGODB_DB_NAME, API_HISTOGRAMS_PATH
 from api.api_models.lightbulb_score import LightbulbScoreType
 from dao.attribute import DAOAttributePL
@@ -50,6 +51,50 @@ def plot_two_hists(data1, data2, title, metric_name="Metric", num_bin=21, min_va
     plt.legend()
     plt.savefig(f'{API_HISTOGRAMS_PATH}/{file_name}.png')
     plt.clf()
+
+def compute_histogram_data(attribute_name: str, num_bin=21,
+                           min_value=None, max_value=None, additional_value=None) -> HistogramDataDTO:
+    data_gen = [attribute[0][attribute_name] for attribute in GENERATED_FLAT_DICT]
+    data_real = [attribute[0][attribute_name] for attribute in REAL_FLAT_DICT]
+
+    if min_value is None:
+        min_value = 0
+    if max_value is None:
+        max_value = max(np.percentile(data_gen, 95), np.percentile(data_real, 95))
+
+    # Clip values
+    data_gen = np.clip(data_gen, None, max_value)
+    data_real = np.clip(data_real, None, max_value)
+
+    w = (max_value - min_value) / num_bin
+    bins = np.arange(min_value, max_value + w, w).tolist()
+
+    counts_gen, _ = np.histogram(data_gen, bins=bins)
+    counts_real, _ = np.histogram(data_real, bins=bins)
+
+    histogram_llm = HistogramData(
+        feature=attribute_name,
+        data_type="llm-generated",
+        bins=bins,
+        counts=counts_gen.tolist()
+    )
+
+    histogram_human = HistogramData(
+        feature=attribute_name,
+        data_type="human-written",
+        bins=bins,
+        counts=counts_real.tolist()
+    )
+
+    return HistogramDataDTO(
+        llm=histogram_llm,
+        human=histogram_human,
+        additional_value=additional_value,
+        min_value=min_value,
+        max_value=max_value,
+        num_bins=num_bin
+    )
+
 
 
 def compare_2_hists(attribute_name: str, min_value=None, max_value=None, top=0.41, num_bin=21,
