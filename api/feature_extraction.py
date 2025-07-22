@@ -3,7 +3,7 @@ import hashlib
 from datetime import datetime
 from typing import Optional
 
-from fastapi import BackgroundTasks, Depends, APIRouter
+from fastapi import BackgroundTasks, Depends, APIRouter, HTTPException, status
 
 from analysis.attribute_retriving import perform_full_analysis
 from analysis.nlp_transformations import preprocess_text
@@ -25,22 +25,18 @@ dao_async_analysis: DAOAsyncAnalysis = DAOAsyncAnalysis()
 dao_async_document: DAOAsyncDocument = DAOAsyncDocument()
 
 @router.post("/add-document",
-             response_model=dict | DocumentWithSpecifiedHashAlreadyExists
+             response_model=dict,
+             status_code=status.HTTP_201_CREATED
              )
 async def post_document(preprocessed_document: PreprocessedDocumentRequestData,
                         user_id: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
     # Check if the document already exists
     existing_doc: Optional[DocumentInDB] = await dao_async_document.find_one_by_query({"document_hash": preprocessed_document.document_hash, "owner_id": user_id})
-    if existing_doc and existing_doc.document_status == DocumentStatus.READY_FOR_ANALYSIS:
-        return DocumentWithSpecifiedHashAlreadyExists()
-    elif existing_doc:
-        await dao_async_document.update_one({"document_hash": preprocessed_document.document_hash,"owner_id": user_id},
-    {'$set':{
-            'document_name': preprocessed_document.document_name,
-            'plaintext_content':preprocessed_document.preprocessed_content,
-            'document_status': DocumentStatus.READY_FOR_ANALYSIS if preprocessed_document.preprocessed_content is not None else DocumentStatus.PREPROCESS_RUNNING,
-            'filepath':preprocessed_document.filepath,
-            'owner_id': user_id}})
+    if existing_doc:
+        raise HTTPException(
+            status_code=409,
+            detail="Document with the specified hash already exists, please use a different ID"
+        )
     else:
         document = Document(
             document_name=preprocessed_document.document_name,
@@ -48,10 +44,36 @@ async def post_document(preprocessed_document: PreprocessedDocumentRequestData,
             document_hash=preprocessed_document.document_hash,
             plaintext_content=preprocessed_document.preprocessed_content,
             filepath=preprocessed_document.filepath,
-            owner_id=user_id
+            owner_id=user_id,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
         )
         await dao_async_document.insert_one(document)
     return {"message": f"Document with name {preprocessed_document.document_name} has been inserted"}
+
+@router.patch("/update-document",
+             response_model=dict,
+             status_code=status.HTTP_200_OK
+             )
+async def update_document(preprocessed_document: PreprocessedDocumentRequestData,
+                        user_id: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
+    # Check if the document already exists
+    existing_doc: Optional[DocumentInDB] = await dao_async_document.find_one_by_query({"document_hash": preprocessed_document.document_hash, "owner_id": user_id})
+    if not existing_doc:
+        raise HTTPException(
+            status_code=404,
+            detail="Document with the specified hash does not exist"
+        )
+    else:
+        await dao_async_document.update_one({"document_hash": preprocessed_document.document_hash,"owner_id": user_id},
+    {'$set':{
+            'document_name': preprocessed_document.document_name,
+            'plaintext_content':preprocessed_document.preprocessed_content,
+            'document_status': DocumentStatus.READY_FOR_ANALYSIS if preprocessed_document.preprocessed_content is not None else DocumentStatus.PREPROCESS_RUNNING,
+            'filepath':preprocessed_document.filepath,
+            'updated_at': datetime.now()
+        }})
+    return {"message": f"Document with name {preprocessed_document.document_name} has been updated"}
 
 
 @router.post("/trigger-analysis",
