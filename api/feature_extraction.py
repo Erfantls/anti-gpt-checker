@@ -7,7 +7,6 @@ from fastapi import BackgroundTasks, Depends, APIRouter, HTTPException, status
 
 from analysis.attribute_retriving import perform_full_analysis
 from analysis.nlp_transformations import preprocess_text
-from api.api_models.response import DocumentWithSpecifiedHashAlreadyExists
 from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DOCUMENTS_COLLECTION_NAME, API_DEBUG, \
     API_MONGODB_DB_NAME, API_DEBUG_USER_ID
 from api.server_dao.analysis import DAOAsyncAnalysis, DAOAnalysis
@@ -89,10 +88,18 @@ async def update_document(preprocessed_document: PreprocessedDocumentRequestData
 
 
 @router.post("/trigger-analysis",
-             response_model=dict)
+             response_model=dict,
+             status_code=status.HTTP_202_ACCEPTED)
 async def trigger_document_analysis(document_hash: str, background_tasks: BackgroundTasks,
                                     perform_full_analysis: bool = False,
                                     user_id: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
+    existing_doc: Optional[DocumentInDB] = await dao_async_document.find_one_by_query(
+        {"document_hash": document_hash, "owner_id": user_id})
+    if not existing_doc:
+        raise HTTPException(
+            status_code=404,
+            detail="Document with the specified hash does not exist"
+        )
     # generate analysis_id
     analysis_id = hashlib.sha256(f"{document_hash}_{user_id}_{datetime.now().isoformat()}".encode()).hexdigest()
     analysis = Analysis(

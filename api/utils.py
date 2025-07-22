@@ -1,31 +1,42 @@
 from datetime import timedelta, datetime
 from typing import Tuple, Optional
 
+from fastapi import HTTPException
+
 from api.analyser import calculate_lightbulb_score
 from api.api_models.analysis import AnalysisInDB, AnalysisStatus
 from api.api_models.lightbulb_score import LightbulbScoreType, LightbulbScoreData
-from api.api_models.response import NoAnalysisFoundResponse, BackgroundTaskStatusResponse, NoAttributeFoundResponse, \
-    BackgroundTaskFailedResponse, BackgroundTaskRunningResponse, BackgroundTaskFinishedResponse
+from api.api_models.response import BackgroundTaskStatusResponse, BackgroundTaskFailedResponse, \
+    BackgroundTaskRunningResponse, BackgroundTaskFinishedResponse
 from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_MONGODB_DB_NAME, API_LIGHTBULBS_SCORES_PARAMETERS
 from api.server_dao.analysis import DAOAsyncAnalysis
 from dao.attribute import DAOAsyncAttributePL
 from models.attribute import AttributePLInDB
 
 dao_analysis: DAOAsyncAnalysis = DAOAsyncAnalysis()
-dao_attribute: DAOAsyncAttributePL = DAOAsyncAttributePL(collection_name=API_ATTRIBUTES_COLLECTION_NAME, db_name=API_MONGODB_DB_NAME)
+dao_attribute: DAOAsyncAttributePL = DAOAsyncAttributePL(collection_name=API_ATTRIBUTES_COLLECTION_NAME,
+                                                         db_name=API_MONGODB_DB_NAME)
+
 
 async def _validate_analysis(
-        analysis_id: str) -> Tuple[AnalysisInDB, AttributePLInDB] | NoAnalysisFoundResponse | BackgroundTaskStatusResponse | NoAttributeFoundResponse:
+        analysis_id: str) -> Tuple[
+                                 AnalysisInDB, AttributePLInDB] | BackgroundTaskStatusResponse:
     analysis: Optional[AnalysisInDB] = await dao_analysis.find_one_by_query({'analysis_id': analysis_id})
     if not analysis:
-        return NoAnalysisFoundResponse()
+        raise HTTPException(
+            status_code=404,
+            detail="Analysis with the specified hash does not exist"
+        )
 
     if analysis.status != AnalysisStatus.FINISHED:
         return _handle_analysis_status(analysis)
 
     attribute: AttributePLInDB = await dao_attribute.find_by_id(analysis.attributes_id)
     if not attribute:
-        return NoAttributeFoundResponse()
+        raise HTTPException(
+            status_code=404,
+            detail="No attributes found connected with the analysis"
+        )
 
     return analysis, attribute
 
@@ -67,7 +78,7 @@ async def calculate_lightbulb_scores(attribute, attribute_names) -> list[Lightbu
 
         if attribute_name in API_LIGHTBULBS_SCORES_PARAMETERS:
             category = API_LIGHTBULBS_SCORES_PARAMETERS[attribute_name].type
-        else: # default to BIDIRECTIONAL if not specified
+        else:  # default to BIDIRECTIONAL if not specified
             category = LightbulbScoreType.BIDIRECTIONAL
 
         attribute_value = attribute_dict[attribute_name]

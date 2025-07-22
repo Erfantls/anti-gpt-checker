@@ -8,18 +8,6 @@ from api.api_models.lightbulb_score import LightbulbScoreData
 from models.attribute import AttributeInDB
 
 
-class NoAnalysisFoundResponse(BaseModel):
-    type: str = "no_analysis_found_response"
-    message: str = "No analysis found with the specified ID"
-
-class NoAttributeFoundResponse(BaseModel):
-    type: str = "no_attribute_found_response"
-    message: str = "No attribute found with the specified ID"
-
-class NoDocumentFoundResponse(BaseModel):
-    type: str = "no_document_found_response"
-    message: str = "No document found with the specified ID"
-
 class DocumentPreprocessingStillRunningResponse(BaseModel):
     type: str = "DocumentPreprocessingStillRunningResponse"
     message: str = "Document preprocessing is still running, please wait and try again later"
