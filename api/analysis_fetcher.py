@@ -1,7 +1,7 @@
 from typing import Optional, Tuple
 
 from fastapi import Depends, APIRouter, HTTPException, status, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from api.api_models.document import DocumentInDB, DocumentStatus
 from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DEBUG, API_MONGODB_DB_NAME, API_HISTOGRAMS_PATH, \
@@ -123,12 +123,14 @@ async def get_graph_image(analysis_id: str, attribute_name: str,
 
 @router.get("/histogram-data", response_model=HistogramDataDTO, status_code=status.HTTP_200_OK)
 async def get_graph_summary(
-        analysis_id: str,
-        attribute_name: str,
-        num_bins: int = Query(21, gt=1, le=100),
-        min_value: Optional[float] = Query(None),
-        max_value: Optional[float] = Query(None),
-        _: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
+    analysis_id: str,
+    attribute_name: str,
+    num_bins: int = Query(21, gt=1, le=100),
+    min_value: Optional[float] = Query(None),
+    max_value: Optional[float] = Query(None),
+    existing_hash: Optional[str] = Query(None, alias="hash"),
+    _: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID
+):
     validation_result = await _validate_analysis(analysis_id)
     if isinstance(validation_result, Tuple):
         analysis, attribute = validation_result
@@ -142,11 +144,15 @@ async def get_graph_summary(
             detail="No attributes found connected with the analysis"
         )
 
-    result = compute_histogram_data(
+    dto = compute_histogram_data(
         attribute_name=attribute_name,
         num_bin=num_bins,
         min_value=min_value,
         max_value=max_value,
         additional_value=attribute_dict[attribute_name]
     )
-    return result
+
+    if existing_hash and existing_hash == dto.object_hash:
+        return JSONResponse(content={"detail": "Object hash did not change"}, status_code=200)
+
+    return dto

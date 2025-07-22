@@ -86,14 +86,19 @@ def compute_histogram_data(attribute_name: str, num_bin=21,
         counts=counts_real.tolist()
     )
 
-    return HistogramDataDTO(
+    dto = HistogramDataDTO(
         llm=histogram_llm,
         human=histogram_human,
         additional_value=additional_value,
         min_value=min_value,
         max_value=max_value,
-        num_bins=num_bin
+        num_bins=num_bin,
+        object_hash = ""
     )
+
+    dto.object_hash = dto.calculate_histogram_hash()
+
+    return dto
 
 
 

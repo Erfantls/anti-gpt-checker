@@ -1,3 +1,5 @@
+import hashlib
+import json
 from typing import Union, List, Literal, Optional
 
 from pydantic import BaseModel
@@ -98,3 +100,10 @@ class HistogramDataDTO(BaseModel):
     min_value: float
     max_value: float
     num_bins: int
+    object_hash: str
+
+    def calculate_histogram_hash(self) -> str:
+        dto_copy = self.dict(exclude={"object_hash"})
+        # Sort keys to ensure consistent hashing
+        encoded = json.dumps(dto_copy, sort_keys=True).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
