@@ -92,6 +92,19 @@ async def get_document_by_hash(document_hash: str, user_id: str = Depends(verify
 
     return document
 
+@router.get("/document-exists",
+            response_model=dict,
+            status_code=status.HTTP_200_OK)
+async def get_document_by_hash(document_hash: str, user_id: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
+    document: Optional[DocumentInDB] = await dao_document.find_one_by_query({'document_hash': document_hash, 'owner_id': user_id})
+    if not document:
+        raise HTTPException(
+            status_code=404,
+            detail="Document with the specified hash does not exist"
+        )
+
+    return {"document_name": document.document_name, "uploaded_at": document.created_at}
+
 
 @router.get("/get-analysis-of-document",
             response_model=AnalysesOfDocumentsResponse,
