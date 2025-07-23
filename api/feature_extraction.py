@@ -5,18 +5,19 @@ from typing import Optional
 
 from fastapi import BackgroundTasks, Depends, APIRouter, HTTPException, status
 
-from analysis.attribute_retriving import perform_full_analysis
+from analysis.attribute_retriving import perform_full_analysis, perform_partial_analysis_independently
 from analysis.nlp_transformations import preprocess_text
 from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DOCUMENTS_COLLECTION_NAME, API_DEBUG, \
     API_MONGODB_DB_NAME, API_DEBUG_USER_ID
 from api.server_dao.analysis import DAOAsyncAnalysis, DAOAnalysis
 from api.server_dao.document import DAOAsyncDocument, DAODocument
-from api.api_models.analysis import Analysis, AnalysisType, AnalysisStatus
+from api.api_models.analysis import Analysis, AnalysisType, AnalysisStatus, AnalysisInDB
 from api.api_models.document import DocumentInDB, Document, DocumentStatus
 from api.api_models.request import PreprocessedDocumentRequestData
 from api.security import verify_token
 from dao.attribute import DAOAttributePL
-from models.attribute import AttributePL
+from models.attribute import AttributePL, AttributePLInDB
+from models.base_mongo_model import MongoObjectId
 
 router = APIRouter()
 
@@ -91,7 +92,7 @@ async def update_document(preprocessed_document: PreprocessedDocumentRequestData
              response_model=dict,
              status_code=status.HTTP_202_ACCEPTED)
 async def trigger_document_analysis(document_hash: str, background_tasks: BackgroundTasks,
-                                    perform_full_analysis: bool = False,
+                                    type_of_analysis: AnalysisType = AnalysisType.DOCUMENT_LEVEL,
                                     user_id: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
     existing_doc: Optional[DocumentInDB] = await dao_async_document.find_one_by_query(
         {"document_hash": document_hash, "owner_id": user_id})
@@ -101,19 +102,44 @@ async def trigger_document_analysis(document_hash: str, background_tasks: Backgr
             detail="Document with the specified hash does not exist"
         )
     # generate analysis_id
-    analysis_id = hashlib.sha256(f"{document_hash}_{user_id}_{datetime.now().isoformat()}".encode()).hexdigest()
+    current_analysis_id = hashlib.sha256(f"{document_hash}_{type_of_analysis}_{user_id}".encode()).hexdigest()
+    current_analysis: Optional[AnalysisInDB] = await dao_async_analysis.find_one_by_query({'analysis_id': current_analysis_id})
+    if current_analysis:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Analysis with this document and specified type already exists, analysis_id: {current_analysis_id}"
+        )
+    other_type_of_analysis = AnalysisType.DOCUMENT_LEVEL if type_of_analysis == AnalysisType.CHUNK_LEVEL else AnalysisType.CHUNK_LEVEL
+    other_type_analysis_id = hashlib.sha256(f"{document_hash}_{other_type_of_analysis}_{user_id}".encode()).hexdigest()
+    other_type_analysis: Optional[AnalysisInDB] = await dao_async_analysis.find_one_by_query(
+        {'analysis_id': other_type_analysis_id})
+    if not other_type_analysis and type_of_analysis == AnalysisType.CHUNK_LEVEL:
+        raise HTTPException(
+            status_code=409,
+            detail=f"DOCUMENT_LEVEL analysis for this document does not exist, please run it first"
+        )
+    if other_type_analysis and type_of_analysis == AnalysisType.CHUNK_LEVEL and other_type_analysis.status != AnalysisStatus.FINISHED:
+        raise HTTPException(
+            status_code=409,
+            detail=f"DOCUMENT_LEVEL analysis for this document is not finished yet, please wait for it to complete"
+        )
+
+    attributes_id = None
+    if other_type_analysis and type_of_analysis == AnalysisType.CHUNK_LEVEL:
+        attributes_id = other_type_analysis.attributes_id
+
     analysis = Analysis(
-        analysis_id=analysis_id,
-        type=AnalysisType.FULL if perform_full_analysis else AnalysisType.PARTIAL,
+        analysis_id=current_analysis_id,
+        type=type_of_analysis,
         status=AnalysisStatus.RUNNING,
         document_hash=document_hash,
         estimated_wait_time=30,
         start_time=datetime.now()
     )
     await dao_async_analysis.insert_one(analysis)
-    background_tasks.add_task(_perform_analysis, analysis_id, document_hash, user_id)
-    return {"message": f"Analysis of document {document_hash} has been triggered",
-            "analysis_id": str(analysis_id)}
+    background_tasks.add_task(_perform_analysis, current_analysis_id, document_hash, user_id, type_of_analysis, attributes_id)
+    return {"message": f"{type_of_analysis} analysis of document {document_hash} has been triggered",
+            "analysis_id": str(current_analysis_id)}
 
 
 dao_analysis: DAOAnalysis = DAOAnalysis()
@@ -122,22 +148,34 @@ dao_attribute: DAOAttributePL = DAOAttributePL(collection_name=API_ATTRIBUTES_CO
                                                db_name=API_MONGODB_DB_NAME)
 
 
-def _perform_analysis(analysis_id: str, document_hash, user_id: str):
+def _perform_analysis(analysis_id: str, document_hash, user_id: str, type_of_analysis: AnalysisType, document_level_attributes_id: Optional[MongoObjectId]):
     document: DocumentInDB = dao_document.find_one_by_query({'document_hash': document_hash, 'owner_id': user_id})
     try:
         text_to_analyse = preprocess_text(document.plaintext_content)
-        analysis_result = perform_full_analysis(text_to_analyse, 'pl')
-        attribute_to_insert = AttributePL(
-            referenced_db_name=API_DOCUMENTS_COLLECTION_NAME,
-            referenced_doc_id=document.id,
-            language="pl",
-            is_generated=None,
-            is_personal=None,
-            **analysis_result.dict()
-        )
-        attributes_id = dao_attribute.insert_one(attribute_to_insert)
-        dao_analysis.update_one({'analysis_id': analysis_id},
-                                {'$set': {'status': AnalysisStatus.FINISHED, "attributes_id": attributes_id}})
+        if type_of_analysis == AnalysisType.DOCUMENT_LEVEL:
+            analysis_result = perform_full_analysis(text_to_analyse, 'pl', skip_partial_attributes=True)
+            attribute_to_insert = AttributePL(
+                referenced_db_name=API_DOCUMENTS_COLLECTION_NAME,
+                referenced_doc_id=document.id,
+                language="pl",
+                is_generated=None,
+                is_personal=None,
+                **analysis_result.dict()
+            )
+            attributes_id = dao_attribute.insert_one(attribute_to_insert)
+            dao_analysis.update_one({'analysis_id': analysis_id},
+                                    {'$set': {'status': AnalysisStatus.FINISHED, "attributes_id": attributes_id}})
+        elif type_of_analysis == AnalysisType.CHUNK_LEVEL:
+            assert document_level_attributes_id is not None, "Document level attributes ID must be provided for chunk level analysis"
+            document_level_attribute_in_db: AttributePLInDB = dao_attribute.find_by_id(document_level_attributes_id)
+            partial_attributes, combination_features = perform_partial_analysis_independently(document_level_attribute_in_db, text_to_analyse, 'pl')
+            dao_attribute.update_one({'_id': document_level_attribute_in_db},{"$set":
+                                                        {'partial_attributes': [partial_attribute.dict() for partial_attribute in partial_attributes],
+                                                         'combination_features': combination_features.dict()}})
+            dao_analysis.update_one({'analysis_id': analysis_id},
+                                    {'$set': {'status': AnalysisStatus.FINISHED, "attributes_id": document_level_attribute_in_db}})
+
+
     except Exception as e:
         dao_analysis.update_one({'analysis_id': analysis_id}, {'$set':
                                                                    {'status': AnalysisStatus.FAILED,

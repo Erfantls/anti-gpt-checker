@@ -9,8 +9,8 @@ from models.base_mongo_model import MongoDBModel, MongoObjectId
 
 
 class AnalysisType(str, Enum):
-    FULL = "full"
-    PARTIAL = "partial"
+    DOCUMENT_LEVEL = "document_level"
+    CHUNK_LEVEL = "chunk_level"
 
 class AnalysisStatus(str, Enum):
     RUNNING = "running"

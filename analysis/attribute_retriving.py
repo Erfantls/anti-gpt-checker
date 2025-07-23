@@ -24,7 +24,7 @@ from textblob import TextBlob
 from analysis.nlp_transformations import replace_links_with_text, remove_stopwords_punctuation_emojis_and_splittings, \
     lemmatize_text, split_into_sentences, is_abbreviation, get_text_for_punctuation_analysis
 from models.attribute import AttributeNoDBParametersPL, AttributeNoDBParametersEN, PartialAttribute, PartialAttributeEN, \
-    PartialAttributePL
+    PartialAttributePL, AttributePLInDB, AttributeENInDB
 from models.combination_features import CombinationFeatures
 
 from models.stylometrix_metrics import AllStyloMetrixFeaturesEN, AllStyloMetrixFeaturesPL
@@ -818,3 +818,21 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
                                                                                                     partial_attributes_values_dicts)
         temp_attribute.combination_features = combination_features
         return temp_attribute
+
+
+def perform_partial_analysis_independently(document_level_attribute: Union[AttributePLInDB, AttributeENInDB],
+                                           text: str, lang_code: str, skip_perplexity_calc: bool = False, skip_stylometrix_calc: bool = False) -> Tuple[List[PartialAttribute], CombinationFeatures]:
+    split_sentences: List[str] = split_into_sentences(text, lang_code)
+    text_chunks = split_text_into_chunks(split_sentences)
+    partial_attributes = perform_partial_analysis(text_chunks, lang_code, skip_perplexity_calc,
+                                                  skip_stylometrix_calc)
+    if len(partial_attributes) == 0:
+        combination_features = CombinationFeatures.init_from_stylometrix_and_partial_attributes(document_level_attribute.stylometrix_metrics,
+                                                                                                [document_level_attribute.dict()])
+    else:
+        partial_attributes_values_dicts: list[dict] = \
+            [partial_attribute.attribute.dict() for partial_attribute in partial_attributes]
+        combination_features = CombinationFeatures.init_from_stylometrix_and_partial_attributes(document_level_attribute.stylometrix_metrics,
+                                                                                                partial_attributes_values_dicts)
+    return partial_attributes, combination_features
+
