@@ -855,7 +855,7 @@ def perform_partial_analysis_independently(document_level_attribute: Union[Attri
                                            text: str, lang_code: str, skip_perplexity_calc: bool = False, skip_stylometrix_calc: bool = False) -> Tuple[List[PartialAttribute], CombinationFeatures]:
     split_sentences: List[str] = split_into_sentences(text, lang_code)
     text_chunks = split_text_into_chunks(split_sentences)
-    partial_attributes = perform_parallel_partial_analysis(text_chunks, lang_code, skip_perplexity_calc, skip_stylometrix_calc)
+    partial_attributes = perform_partial_analysis(text_chunks, lang_code, skip_perplexity_calc, skip_stylometrix_calc)
     if len(partial_attributes) == 0:
         combination_features = CombinationFeatures.init_from_stylometrix_and_partial_attributes(document_level_attribute.stylometrix_metrics,
                                                                                                 [document_level_attribute.dict()])
