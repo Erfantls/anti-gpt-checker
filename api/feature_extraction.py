@@ -104,7 +104,7 @@ async def trigger_document_analysis(document_hash: str, background_tasks: Backgr
     # generate analysis_id
     current_analysis_id = hashlib.sha256(f"{document_hash}_{type_of_analysis}_{user_id}".encode()).hexdigest()
     current_analysis: Optional[AnalysisInDB] = await dao_async_analysis.find_one_by_query({'analysis_id': current_analysis_id})
-    if current_analysis:
+    if current_analysis and current_analysis.status in [AnalysisStatus.RUNNING, AnalysisStatus.FINISHED]:
         raise HTTPException(
             status_code=409,
             detail=f"Analysis with this document and specified type already exists, analysis_id: {current_analysis_id}"
@@ -128,15 +128,25 @@ async def trigger_document_analysis(document_hash: str, background_tasks: Backgr
     if other_type_analysis and type_of_analysis == AnalysisType.CHUNK_LEVEL:
         attributes_id = other_type_analysis.attributes_id
 
-    analysis = Analysis(
-        analysis_id=current_analysis_id,
-        type=type_of_analysis,
-        status=AnalysisStatus.RUNNING,
-        document_hash=document_hash,
-        estimated_wait_time=30,
-        start_time=datetime.now()
-    )
-    await dao_async_analysis.insert_one(analysis)
+    if current_analysis and current_analysis.status == AnalysisStatus.FAILED:
+        await dao_async_analysis.update_one({'analysis_id': current_analysis_id}, {'$set':
+                                                                   {'type': type_of_analysis,
+                                                                    'status': AnalysisStatus.RUNNING,
+                                                                    'document_hash': document_hash,
+                                                                    'estimated_wait_time': 30,
+                                                                    'start_time': datetime.now(),
+                                                                    'error_message': None
+                                                                    }})
+    else:
+        analysis = Analysis(
+            analysis_id=current_analysis_id,
+            type=type_of_analysis,
+            status=AnalysisStatus.RUNNING,
+            document_hash=document_hash,
+            estimated_wait_time=30,
+            start_time=datetime.now()
+        )
+        await dao_async_analysis.insert_one(analysis)
     background_tasks.add_task(_perform_analysis, current_analysis_id, document_hash, user_id, type_of_analysis, attributes_id)
     return {"message": f"{type_of_analysis} analysis of document {document_hash} has been triggered",
             "analysis_id": str(current_analysis_id)}
@@ -169,11 +179,11 @@ def _perform_analysis(analysis_id: str, document_hash, user_id: str, type_of_ana
             assert document_level_attributes_id is not None, "Document level attributes ID must be provided for chunk level analysis"
             document_level_attribute_in_db: AttributePLInDB = dao_attribute.find_by_id(document_level_attributes_id)
             partial_attributes, combination_features = perform_partial_analysis_independently(document_level_attribute_in_db, text_to_analyse, 'pl')
-            dao_attribute.update_one({'_id': document_level_attribute_in_db},{"$set":
+            dao_attribute.update_one({'_id': document_level_attributes_id},{"$set":
                                                         {'partial_attributes': [partial_attribute.dict() for partial_attribute in partial_attributes],
                                                          'combination_features': combination_features.dict()}})
             dao_analysis.update_one({'analysis_id': analysis_id},
-                                    {'$set': {'status': AnalysisStatus.FINISHED, "attributes_id": document_level_attribute_in_db}})
+                                    {'$set': {'status': AnalysisStatus.FINISHED, "attributes_id": document_level_attributes_id}})
 
 
     except Exception as e:

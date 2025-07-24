@@ -35,10 +35,10 @@ class AnalysisInDB(MongoDBModel, Analysis):
 class AnalysisData(BaseModel):
     analysis_id: str
     document_hash: str
-    full_features: AttributeInDB
+    full_features: Optional[AttributeInDB]
 
     @staticmethod
-    def from_analysis_and_attribute(analysis_in_db: AnalysisInDB, attribute_in_db: AttributeInDB):
+    def from_analysis_and_attribute(analysis_in_db: AnalysisInDB, attribute_in_db: Optional[AttributeInDB]):
         return AnalysisData(
             analysis_id=analysis_in_db.analysis_id,
             document_hash=analysis_in_db.document_hash,
