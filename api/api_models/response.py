@@ -5,8 +5,8 @@ from typing import Union, List, Literal, Optional
 from pydantic import BaseModel
 
 from api.api_models.analysis import AnalysisData, AnalysisStatus, AnalysisInDB
-from api.api_models.document import DocumentInDB
-from api.api_models.lightbulb_score import LightbulbScoreData
+from api.api_models.document import DocumentInDB, DocumentStatus
+from api.api_models.lightbulb_score import LightbulbScoreData, LightbulbScoreType
 from models.attribute import AttributeInDB
 
 
@@ -107,3 +107,29 @@ class HistogramDataDTO(BaseModel):
         # Sort keys to ensure consistent hashing
         encoded = json.dumps(dto_copy, sort_keys=True).encode("utf-8")
         return hashlib.sha256(encoded).hexdigest()
+
+
+class DocumentLevelAnalysis(BaseModel):
+    status: AnalysisStatus
+    lightbulb_features: List[LightbulbScoreData]
+
+class ChunkLevelSubanalysis(BaseModel):
+    identifier: int  # for ordering subanalyses
+    lightbulb_features: List[LightbulbScoreData]
+
+class ChunkLevelAnalysis(BaseModel):
+    status: AnalysisStatus
+    subanalyses: List[ChunkLevelSubanalysis]
+
+class DocumentDataWithAnalyses(BaseModel):
+    document_hash: str  # the document hash
+    document_status: DocumentStatus
+    document_name: str
+    document_upload_date: str
+
+    document_level_analysis: Optional[DocumentLevelAnalysis] = {}
+    chunk_level_analyses: Optional[ChunkLevelAnalysis] = {}
+
+class UserDocumentsWithAnalyses(BaseModel):
+    documents_with_analyses: List[DocumentDataWithAnalyses]
+    owned_data_hash: str  # to help detect changes / invalidate cache

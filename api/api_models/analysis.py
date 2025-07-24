@@ -16,6 +16,7 @@ class AnalysisStatus(str, Enum):
     RUNNING = "running"
     FINISHED = "finished"
     FAILED = "failed"
+    NOT_FINISHED = "not_finished"
 
 class Analysis(BaseModel):
     analysis_id: str

@@ -8,7 +8,8 @@ from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DEBUG, API_MON
 from api.api_models.document import DocumentInDB
 from api.api_models.analysis import AnalysisInDB, AnalysisStatus, AnalysisData, AnalysisType
 from api.api_models.response import DocumentsOfUserResponse, \
-    AnalysesOfDocumentsResponse, DocumentsOfUserWithAnalysisResponse, AnalysisWithLightbulbs, DocumentWithAnalysis
+    AnalysesOfDocumentsResponse, DocumentsOfUserWithAnalysisResponse, AnalysisWithLightbulbs, DocumentWithAnalysis, \
+    ChunkLevelSubanalysis, DocumentLevelAnalysis, ChunkLevelAnalysis, DocumentDataWithAnalyses
 
 from api.security import verify_token
 
@@ -64,6 +65,66 @@ async def get_analysed_documents_of_user(user_id: str = Depends(verify_token) if
         ))
 
     return DocumentsOfUserWithAnalysisResponse(documents_with_analyses=documents_with_analyses)
+
+@router.get("/user-document-with-analyses-details",
+            response_model=DocumentDataWithAnalyses,
+            status_code=status.HTTP_200_OK)
+async def get_document_with_analyses_details(document_hash: str, user_id: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
+    document: DocumentInDB = await dao_document.find_one_by_query({'document_hash': document_hash, 'owner_id': user_id})
+
+    analyses: list[AnalysisInDB] = await dao_analysis.find_many_by_query({'document_hash': document.document_hash, 'type': AnalysisType.DOCUMENT_LEVEL, 'status': AnalysisStatus.FINISHED})
+    if len(analyses) == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="No finished document-level analyses found for the specified document"
+        )
+
+    newest_analyses: AnalysisInDB = sorted(analyses, key=lambda x: x.start_time, reverse=True)[0]
+
+    attribute: AttributePLInDB = await dao_attribute.find_by_id(newest_analyses.attributes_id)
+    if not attribute:
+        raise HTTPException(
+            status_code=404,
+            detail="Attribute for the specified analysis does not exist"
+        )
+
+    document_level_analysis = DocumentLevelAnalysis(
+        status=AnalysisStatus.FINISHED, # it has to be finished as we are fetching only finished analyses
+        lightbulb_features=await calculate_lightbulb_scores(attribute, API_MOST_IMPORTANT_ATTRIBUTES)
+    )
+
+    chunk_analyses: list[AnalysisInDB] = await dao_analysis.find_many_by_query({'document_hash': document.document_hash, 'type': AnalysisType.CHUNK_LEVEL, 'status': AnalysisStatus.FINISHED})
+    if len(chunk_analyses) == 0:
+        chunk_level_analysis = ChunkLevelAnalysis(
+            status=AnalysisStatus.NOT_FINISHED,
+            subanalyses=[]
+        )
+    else:
+        chunk_level_subanalyses: list[ChunkLevelSubanalysis] = []
+        for chunk_attributes in attribute.partial_attributes:
+            identifier = chunk_attributes.index
+            lightbulb_scores = await calculate_lightbulb_scores(chunk_attributes.attribute, API_MOST_IMPORTANT_ATTRIBUTES)
+            chunk_level_subanalyses.append(ChunkLevelSubanalysis(
+                identifier=identifier,
+                lightbulb_features=lightbulb_scores
+            ))
+        chunk_level_analysis = ChunkLevelAnalysis(
+            status=AnalysisStatus.FINISHED,
+            subanalyses=chunk_level_subanalyses
+        )
+
+    document_data_with_analyses = DocumentDataWithAnalyses(
+        document_hash=document.document_hash,
+        document_status=document.document_status,
+        document_name=document.document_name,
+        document_upload_date=document.created_at.isoformat(),
+        document_level_analysis=document_level_analysis,
+        chunk_level_analyses=chunk_level_analysis
+    )
+
+    return document_data_with_analyses
+
+
 
 
 @router.get("/get-document",

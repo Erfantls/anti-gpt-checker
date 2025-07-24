@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -10,7 +11,11 @@ class LightbulbScoreType(str, Enum):
 class LightbulbScoreConfig(BaseModel):
     attribute_name: str
     type: LightbulbScoreType
+    max_value: Optional[float]
+    min_value: Optional[float]
+    feature_rank: Optional[int] = None
 
 class LightbulbScoreData(LightbulbScoreConfig):
     score: float
+    raw_score: float
 

@@ -87,6 +87,10 @@ async def calculate_lightbulb_scores(attribute, attribute_names) -> list[Lightbu
         lightbulb_score_data.append(LightbulbScoreData(
             attribute_name=attribute_name,
             type=LightbulbScoreType.BIDIRECTIONAL,
-            score=lightbulb_score_value
+            score=lightbulb_score_value,
+            raw_score=attribute_value,
+            max_value=API_LIGHTBULBS_SCORES_PARAMETERS[attribute_name].max_value,
+            min_value=API_LIGHTBULBS_SCORES_PARAMETERS[attribute_name].min_value,
+            feature_rank=API_LIGHTBULBS_SCORES_PARAMETERS[attribute_name].feature_rank
         ))
     return lightbulb_score_data
