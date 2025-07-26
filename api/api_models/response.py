@@ -96,7 +96,7 @@ class HistogramData(BaseModel):
 class HistogramDataDTO(BaseModel):
     llm: HistogramData
     human: HistogramData
-    additional_value: Optional[float] = None
+    # additional_value: Optional[float] = None
     min_value: float
     max_value: float
     num_bins: int
@@ -108,6 +108,18 @@ class HistogramDataDTO(BaseModel):
         encoded = json.dumps(dto_copy, sort_keys=True).encode("utf-8")
         return hashlib.sha256(encoded).hexdigest()
 
+class HistogramDataWithMetadata(BaseModel):
+    histogram_data: HistogramDataDTO
+    attribute_name: str
+
+class AllHistogramsDTO(BaseModel):
+    histograms_data_with_metadata: List[HistogramDataWithMetadata]
+    object_hash: str
+    def calculate_all_histogram_hash(self) -> str:
+        hash_concatenated = "".join(
+            histogram_data_with_metadata.histogram_data.object_hash for histogram_data_with_metadata in self.histograms_data_with_metadata
+        )
+        return hashlib.sha256(hash_concatenated.encode('utf-8')).hexdigest()
 
 class DocumentLevelAnalysis(BaseModel):
     status: AnalysisStatus

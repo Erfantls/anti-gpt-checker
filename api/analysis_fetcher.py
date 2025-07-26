@@ -18,7 +18,8 @@ from api.api_models.response import BackgroundTaskStatusResponse, AnalysisResult
     LightbulbScoreResponse, DocumentPreprocessingStillRunningResponse, DocumentPreprocessingFinishedResponse, \
     HistogramDataDTO, DocumentDataWithAnalyses, DocumentLevelAnalysis, ChunkLevelAnalysis, ChunkLevelSubanalysis, \
     UserDocumentsWithAnalyses, DocumentLevelAnalysisAdditionalDetails, ChunkLevelAnalysisAdditionalDetails, \
-    ChunkLevelSubanalysisAdditionalDetails, DocumentWithAnalysesAdditionalDetails
+    ChunkLevelSubanalysisAdditionalDetails, DocumentWithAnalysesAdditionalDetails, HistogramDataWithMetadata, \
+    AllHistogramsDTO
 from api.analyser import compare_2_hists, compute_histogram_data
 from api.security import verify_token
 from api.utils import _validate_analysis, _handle_analysis_status, calculate_lightbulb_scores
@@ -138,6 +139,56 @@ async def get_graph_summary(
     existing_hash: Optional[str] = Query(None, alias="hash"),
     _: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID
 ):
+    return await _get_graph_summary(
+        analysis_id=analysis_id,
+        attribute_name=attribute_name,
+        num_bins=num_bins,
+        min_value=min_value,
+        max_value=max_value,
+        existing_hash=existing_hash
+    )
+
+@router.get("/all-histograms-data", response_model=AllHistogramsDTO, status_code=status.HTTP_200_OK)
+async def get_all_graph_summary(
+    analysis_id: str,
+    num_bins: int = Query(21, gt=1, le=100),
+    existing_hash: Optional[str] = Query(None, alias="hash"),
+    _: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID
+):
+    histograms_data_with_metadata: List[HistogramDataWithMetadata] = []
+    for attribute_name in API_MOST_IMPORTANT_ATTRIBUTES:
+        histogram_data = await _get_graph_summary(
+            analysis_id=analysis_id,
+            attribute_name=attribute_name,
+            num_bins=num_bins,
+            min_value=None,
+            max_value=None,
+            existing_hash=None
+        )
+        histograms_data_with_metadata.append(HistogramDataWithMetadata(
+            histogram_data = histogram_data,
+            attribute_name=attribute_name)
+        )
+
+    all_histograms_dto = AllHistogramsDTO(
+        histograms_data_with_metadata=histograms_data_with_metadata,
+        object_hash=""
+    )
+    all_histograms_dto.object_hash = all_histograms_dto.calculate_all_histogram_hash()
+    if existing_hash and existing_hash == all_histograms_dto.object_hash:
+        return JSONResponse(content={"detail": "Object hash did not change"}, status_code=200)
+
+    return all_histograms_dto
+
+
+async def _get_graph_summary(
+    analysis_id: str,
+    attribute_name: str,
+    num_bins: int,
+    min_value: Optional[float],
+    max_value: Optional[float],
+    existing_hash: Optional[str]
+):
     validation_result = await _validate_analysis(analysis_id)
     if isinstance(validation_result, Tuple):
         analysis, attribute = validation_result
@@ -163,7 +214,6 @@ async def get_graph_summary(
         return JSONResponse(content={"detail": "Object hash did not change"}, status_code=200)
 
     return dto
-
 
 @router.get("/user-document-with-analyses-overview",
             response_model=DocumentDataWithAnalyses,
