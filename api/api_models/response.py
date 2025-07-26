@@ -133,3 +133,18 @@ class DocumentDataWithAnalyses(BaseModel):
 class UserDocumentsWithAnalyses(BaseModel):
     documents_with_analyses: List[DocumentDataWithAnalyses]
     owned_data_hash: str  # to help detect changes / invalidate cache
+
+class DocumentLevelAnalysisAdditionalDetails(BaseModel):
+    analysed_text: str
+
+class ChunkLevelSubanalysisAdditionalDetails(BaseModel):
+    identifier: int
+    analysed_text: str
+
+class ChunkLevelAnalysisAdditionalDetails(BaseModel):
+    subanalyses_details: List[ChunkLevelSubanalysisAdditionalDetails]
+
+class DocumentWithAnalysesAdditionalDetails(BaseModel):
+    document_hash: str
+    document_level_analysis_details: DocumentLevelAnalysisAdditionalDetails
+    chunk_level_analysis_details: ChunkLevelAnalysisAdditionalDetails

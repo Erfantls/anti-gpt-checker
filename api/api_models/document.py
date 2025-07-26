@@ -19,7 +19,7 @@ class Document(BaseModel):
     document_hash: str
     document_status: Optional[DocumentStatus] = DocumentStatus.READY_FOR_ANALYSIS
     owner_id: Optional[str] = None
-    created_at: Optional[datetime] = None
+    created_at: datetime = None
     updated_at: Optional[datetime] = None
 
 
