@@ -5,7 +5,8 @@ from scipy.stats import gaussian_kde
 from matplotlib import pyplot as plt
 
 from api.api_models.response import HistogramData, HistogramDataDTO
-from api.server_config import API_ATTRIBUTES_REFERENCE_COLLECTION_NAME, API_MONGODB_DB_NAME, API_HISTOGRAMS_PATH
+from api.server_config import API_ATTRIBUTES_REFERENCE_COLLECTION_NAME, API_MONGODB_DB_NAME, API_HISTOGRAMS_PATH, \
+    API_MOST_IMPORTANT_ATTRIBUTES
 from api.api_models.lightbulb_score import LightbulbScoreType
 from dao.attribute import DAOAttributePL
 from models.attribute import AttributePLInDB
@@ -14,6 +15,7 @@ dao_attribute_reference: DAOAttributePL = DAOAttributePL(collection_name=API_ATT
 
 GENERATED_FLAT_DICT = None
 REAL_FLAT_DICT = None
+LIGHTBULB_GAUSSIAN_KDE_DATA = None
 
 def load_reference_attributes() -> None:
     global GENERATED_FLAT_DICT, REAL_FLAT_DICT
@@ -25,6 +27,23 @@ def load_reference_attributes() -> None:
     GENERATED_FLAT_DICT = [(x.to_flat_dict_normalized(), 1) for x in generated]
     REAL_FLAT_DICT = [(x.to_flat_dict_normalized(), 0) for x in real]
     print(f"LOADED {len(GENERATED_FLAT_DICT) + len(REAL_FLAT_DICT)} attributes from reference collection")
+
+def precompile_gaussian_kde() -> None:
+    """
+    Precompiles the Gaussian KDE for the generated and real attributes.
+    This is useful to speed up the lightbulb score calculations.
+    """
+    assert GENERATED_FLAT_DICT is not None
+    assert REAL_FLAT_DICT is not None
+
+    global LIGHTBULB_GAUSSIAN_KDE_DATA
+    LIGHTBULB_GAUSSIAN_KDE_DATA = {}
+    for attribute_name in API_MOST_IMPORTANT_ATTRIBUTES:
+        gen_values = [attribute[0][attribute_name] for attribute in GENERATED_FLAT_DICT]
+        real_values = [attribute[0][attribute_name] for attribute in REAL_FLAT_DICT]
+        real_kde = gaussian_kde(real_values, bw_method='scott')
+        gen_kde = gaussian_kde(gen_values, bw_method='scott')
+        LIGHTBULB_GAUSSIAN_KDE_DATA[attribute_name] = (real_kde, gen_kde)
 
 def plot_two_hists(data1, data2, title, metric_name="Metric", num_bin=21, min_value=0, max_value=5, top=0.5,
                    additional_value=None, file_name=""):
@@ -135,8 +154,7 @@ def _relative_density(value: float,
 
 def calculate_lightbulb_score(attribute_value,
                               attribute_name,
-                              category=LightbulbScoreType.BIDIRECTIONAL,
-                              bandwidth='scott') -> float:
+                              category=LightbulbScoreType.BIDIRECTIONAL) -> float:
     """
     Returns a scalar whose range depends on *category*.
 
@@ -144,12 +162,15 @@ def calculate_lightbulb_score(attribute_value,
     HUMAN_WRITTEN : [-1, 0]   (close to -1 → confidently human)
     LLM_GENERATED : [ 0, 1]   (close to  1 → confidently LLM)
     """
-    gen_values = [attribute[0][attribute_name] for attribute in GENERATED_FLAT_DICT]
-    real_values = [attribute[0][attribute_name] for attribute in REAL_FLAT_DICT]
+    if attribute_name in LIGHTBULB_GAUSSIAN_KDE_DATA:
+        real_kde, gen_kde = LIGHTBULB_GAUSSIAN_KDE_DATA[attribute_name]
+    else:
+        gen_values = [attribute[0][attribute_name] for attribute in GENERATED_FLAT_DICT]
+        real_values = [attribute[0][attribute_name] for attribute in REAL_FLAT_DICT]
 
-    # KDEs give smooth non-parametric estimates; 1-liner to swap in any other model.
-    real_kde = gaussian_kde(real_values, bw_method=bandwidth)
-    gen_kde  = gaussian_kde(gen_values,  bw_method=bandwidth)
+        # KDEs give smooth non-parametric estimates; 1-liner to swap in any other model.
+        real_kde = gaussian_kde(real_values, bw_method='scott')
+        gen_kde  = gaussian_kde(gen_values,  bw_method='scott')
 
     raw = _relative_density(attribute_value, real_kde, gen_kde)  # [-1,1]
 
