@@ -13,6 +13,7 @@ class AnalysisType(str, Enum):
     CHUNK_LEVEL = "chunk_level"
 
 class AnalysisStatus(str, Enum):
+    QUEUED = "queued"
     RUNNING = "running"
     FINISHED = "finished"
     FAILED = "failed"
@@ -27,6 +28,8 @@ class Analysis(BaseModel):
     estimated_wait_time: int
     start_time: datetime
     error_message: Optional[str] = None
+    queue_position: Optional[int] = None
+    task_id: Optional[str] = None
 
 
 class AnalysisInDB(MongoDBModel, Analysis):

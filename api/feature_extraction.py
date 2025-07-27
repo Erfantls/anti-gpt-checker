@@ -1,3 +1,4 @@
+import asyncio
 import traceback
 import hashlib
 from datetime import datetime
@@ -8,14 +9,14 @@ from fastapi import BackgroundTasks, Depends, APIRouter, HTTPException, status
 from analysis.attribute_retriving import perform_full_analysis, perform_partial_analysis_independently
 from analysis.nlp_transformations import preprocess_text
 from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DOCUMENTS_COLLECTION_NAME, API_DEBUG, \
-    API_MONGODB_DB_NAME, API_DEBUG_USER_ID
+    API_MONGODB_DB_NAME, API_DEBUG_USER_ID, ANALYSIS_TASK_QUEUE
 from api.server_dao.analysis import DAOAsyncAnalysis, DAOAnalysis
 from api.server_dao.document import DAOAsyncDocument, DAODocument
 from api.api_models.analysis import Analysis, AnalysisType, AnalysisStatus, AnalysisInDB
 from api.api_models.document import DocumentInDB, Document, DocumentStatus
 from api.api_models.request import PreprocessedDocumentRequestData
 from api.security import verify_token
-from dao.attribute import DAOAttributePL
+from dao.attribute import DAOAttributePL, DAOAsyncAttributePL
 from models.attribute import AttributePL, AttributePLInDB
 from models.base_mongo_model import MongoObjectId
 
@@ -104,7 +105,7 @@ async def trigger_document_analysis(document_hash: str, background_tasks: Backgr
     # generate analysis_id
     current_analysis_id = hashlib.sha256(f"{document_hash}_{type_of_analysis}_{user_id}".encode()).hexdigest()
     current_analysis: Optional[AnalysisInDB] = await dao_async_analysis.find_one_by_query({'analysis_id': current_analysis_id})
-    if current_analysis and current_analysis.status in [AnalysisStatus.RUNNING, AnalysisStatus.FINISHED]:
+    if current_analysis and current_analysis.status in [AnalysisStatus.QUEUED, AnalysisStatus.RUNNING, AnalysisStatus.FINISHED]:
         raise HTTPException(
             status_code=409,
             detail=f"Analysis with this document and specified type already exists, analysis_id: {current_analysis_id}"
@@ -131,7 +132,7 @@ async def trigger_document_analysis(document_hash: str, background_tasks: Backgr
     if current_analysis and current_analysis.status == AnalysisStatus.FAILED:
         await dao_async_analysis.update_one({'analysis_id': current_analysis_id}, {'$set':
                                                                    {'type': type_of_analysis,
-                                                                    'status': AnalysisStatus.RUNNING,
+                                                                    'status': AnalysisStatus.QUEUED,
                                                                     'document_hash': document_hash,
                                                                     'estimated_wait_time': 30,
                                                                     'start_time': datetime.now(),
@@ -141,24 +142,36 @@ async def trigger_document_analysis(document_hash: str, background_tasks: Backgr
         analysis = Analysis(
             analysis_id=current_analysis_id,
             type=type_of_analysis,
-            status=AnalysisStatus.RUNNING,
+            status=AnalysisStatus.QUEUED,
             document_hash=document_hash,
             estimated_wait_time=30,
             start_time=datetime.now()
         )
         await dao_async_analysis.insert_one(analysis)
-    background_tasks.add_task(_perform_analysis, current_analysis_id, document_hash, user_id, type_of_analysis, attributes_id)
-    return {"message": f"{type_of_analysis} analysis of document {document_hash} has been triggered",
-            "analysis_id": str(current_analysis_id)}
 
+    task_coro = _perform_analysis(current_analysis_id, document_hash, user_id, type_of_analysis, attributes_id)
+    task_id = await ANALYSIS_TASK_QUEUE.enqueue(task_coro)
+    pos = ANALYSIS_TASK_QUEUE.get_position(task_id)
+    await dao_async_analysis.update_one({'analysis_id': current_analysis_id}, {'$set': {'task_id': str(task_id), 'queue_position': pos}})
+
+
+    return {"message": f"{type_of_analysis} analysis of document {document_hash} has been queued",
+            "analysis_id": str(current_analysis_id),
+            "place_in_queue": pos}
 
 dao_analysis: DAOAnalysis = DAOAnalysis()
 dao_document: DAODocument = DAODocument()
 dao_attribute: DAOAttributePL = DAOAttributePL(collection_name=API_ATTRIBUTES_COLLECTION_NAME,
                                                db_name=API_MONGODB_DB_NAME)
 
+async def _perform_analysis(*args, **kwargs):
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _blocking_analysis, *args)
 
-def _perform_analysis(analysis_id: str, document_hash, user_id: str, type_of_analysis: AnalysisType, document_level_attributes_id: Optional[MongoObjectId]):
+def _blocking_analysis(analysis_id: str, document_hash, user_id: str, type_of_analysis: AnalysisType, document_level_attributes_id: Optional[MongoObjectId]):
+    dao_analysis.update_one({'analysis_id': analysis_id},
+                                        {'$set': {'status': AnalysisStatus.RUNNING, 'queue_position': 0}})
+
     document: DocumentInDB = dao_document.find_one_by_query({'document_hash': document_hash, 'owner_id': user_id})
     try:
         text_to_analyse = preprocess_text(document.plaintext_content)
@@ -174,7 +187,8 @@ def _perform_analysis(analysis_id: str, document_hash, user_id: str, type_of_ana
             )
             attributes_id = dao_attribute.insert_one(attribute_to_insert)
             dao_analysis.update_one({'analysis_id': analysis_id},
-                                    {'$set': {'status': AnalysisStatus.FINISHED, "attributes_id": attributes_id}})
+                                    {'$set': {'status': AnalysisStatus.FINISHED, "attributes_id": attributes_id,
+                                                     'task_id': None, 'queue_position': None}})
         elif type_of_analysis == AnalysisType.CHUNK_LEVEL:
             assert document_level_attributes_id is not None, "Document level attributes ID must be provided for chunk level analysis"
             document_level_attribute_in_db: AttributePLInDB = dao_attribute.find_by_id(document_level_attributes_id)
@@ -183,10 +197,12 @@ def _perform_analysis(analysis_id: str, document_hash, user_id: str, type_of_ana
                                                         {'partial_attributes': [partial_attribute.dict() for partial_attribute in partial_attributes],
                                                          'combination_features': combination_features.dict()}})
             dao_analysis.update_one({'analysis_id': analysis_id},
-                                    {'$set': {'status': AnalysisStatus.FINISHED, "attributes_id": document_level_attributes_id}})
+                                    {'$set': {'status': AnalysisStatus.FINISHED, "attributes_id": document_level_attributes_id,
+                                                     'task_id': None, 'queue_position': None}})
 
 
     except Exception as e:
         dao_analysis.update_one({'analysis_id': analysis_id}, {'$set':
                                                                    {'status': AnalysisStatus.FAILED,
-                                                                    'error_message': traceback.format_exc()}})
+                                                                    'error_message': traceback.format_exc(),
+                                                                    'task_id': None, 'queue_position': None}})

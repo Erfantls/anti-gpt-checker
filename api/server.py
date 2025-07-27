@@ -8,6 +8,7 @@ from api.analyser import load_reference_attributes
 from api.analysis_fetcher import router as analysis_fetcher_router
 from api.feature_extraction import router as feature_extraction_router
 from api.db_calls import router as db_router
+from api.server_config import ANALYSIS_TASK_QUEUE
 
 from config import init_all_polish_models
 from services.utils import suppress_stdout
@@ -20,10 +21,14 @@ async def lifespan(app: FastAPI):
     print("=========================================================")
 
     print("Initializing feature extraction models...")
-
     with suppress_stdout():
         init_all_polish_models()
     print("Feature extraction models initialized successfully.")
+    print("=========================================================")
+
+    print("Starting the analysis queue worker...")
+    ANALYSIS_TASK_QUEUE.start_worker()
+    print("Analysis queue worker started successfully.")
     print("=========================================================")
 
     yield

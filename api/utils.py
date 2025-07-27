@@ -7,8 +7,9 @@ from api.analyser import calculate_lightbulb_score
 from api.api_models.analysis import AnalysisInDB, AnalysisStatus
 from api.api_models.lightbulb_score import LightbulbScoreType, LightbulbScoreData
 from api.api_models.response import BackgroundTaskStatusResponse, BackgroundTaskFailedResponse, \
-    BackgroundTaskRunningResponse, BackgroundTaskFinishedResponse
-from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_MONGODB_DB_NAME, API_LIGHTBULBS_SCORES_PARAMETERS
+    BackgroundTaskRunningResponse, BackgroundTaskFinishedResponse, BackgroundTaskQueuedResponse
+from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_MONGODB_DB_NAME, API_LIGHTBULBS_SCORES_PARAMETERS, \
+    ANALYSIS_TASK_QUEUE
 from api.server_dao.analysis import DAOAsyncAnalysis
 from dao.attribute import DAOAsyncAttributePL
 from models.attribute import AttributePLInDB
@@ -29,7 +30,7 @@ async def _validate_analysis(
         )
 
     if analysis.status != AnalysisStatus.FINISHED:
-        return _handle_analysis_status(analysis)
+        return await _handle_analysis_status(analysis)
 
     attribute: AttributePLInDB = await dao_attribute.find_by_id(analysis.attributes_id)
     if not attribute:
@@ -41,12 +42,23 @@ async def _validate_analysis(
     return analysis, attribute
 
 
-def _handle_analysis_status(analysis: AnalysisInDB) -> BackgroundTaskStatusResponse:
+async def _handle_analysis_status(analysis: AnalysisInDB) -> BackgroundTaskStatusResponse:
+    pos = None
+    if analysis.task_id is not None:
+        pos = ANALYSIS_TASK_QUEUE.get_position(analysis.task_id)
+        await dao_analysis.update_one({'analysis_id': analysis.task_id}, {'$set': {'queue_position': pos}})
+
     if analysis.status == AnalysisStatus.FAILED:
         return BackgroundTaskFailedResponse(
             analysis_id=analysis.analysis_id,
             document_id=analysis.document_hash,
             estimated_wait_time=0
+        )
+    elif analysis.status == AnalysisStatus.QUEUED:
+        return BackgroundTaskQueuedResponse(
+            analysis_id=analysis.analysis_id,
+            document_id=analysis.document_hash,
+            place_in_queue=pos
         )
     elif analysis.status == AnalysisStatus.RUNNING:
         estimated_end_time = analysis.start_time + timedelta(seconds=analysis.estimated_wait_time)

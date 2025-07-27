@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import MongoClient
 
+from api.analysis_task_queue import AnalysisTaskQueue
 from api.api_models.lightbulb_score import LightbulbScoreConfig
 
 load_dotenv()
@@ -83,3 +84,5 @@ API_SHARED_SECRET_KEY = os.getenv("API_SHARED_SECRET_KEY")
 
 API_DEBUG = (os.getenv("API_DEBUG", "False").lower() in ["1", "true", "t", "yes", "y"])
 API_DEBUG_USER_ID = os.getenv("API_DEBUG_USER_ID", "0000000000000000000000000")
+
+ANALYSIS_TASK_QUEUE: AnalysisTaskQueue = AnalysisTaskQueue()

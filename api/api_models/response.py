@@ -32,6 +32,13 @@ class BackgroundTaskFailedResponse(BaseModel):
     estimated_wait_time: int = 0
     analysis_id: str
 
+class BackgroundTaskQueuedResponse(BaseModel):
+    type: str = "background_task_queued_response"
+    message: str = "Background task is queued, please wait until other tasks in queue are finished and call document-analysis-result endpoint with the given analysis_id"
+    status: AnalysisStatus = AnalysisStatus.QUEUED
+    document_id: str
+    place_in_queue: int
+    analysis_id: str
 
 class BackgroundTaskRunningResponse(BaseModel):
     type: str = "background_task_running_response"
@@ -50,7 +57,7 @@ class BackgroundTaskFinishedResponse(BaseModel):
     estimated_wait_time: int = 0
     analysis_id: str
 
-BackgroundTaskStatusResponse = Union[BackgroundTaskRunningResponse, BackgroundTaskFinishedResponse, BackgroundTaskFailedResponse]
+BackgroundTaskStatusResponse = Union[BackgroundTaskRunningResponse, BackgroundTaskFinishedResponse, BackgroundTaskFailedResponse, BackgroundTaskQueuedResponse]
 
 class AnalysisResultsResponse(BaseModel):
     type: str = "analysis_results_response"

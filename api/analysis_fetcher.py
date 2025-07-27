@@ -7,7 +7,6 @@ from fastapi.responses import FileResponse, JSONResponse
 from starlette import status
 
 from api.api_models.document import DocumentInDB, DocumentStatus
-from api.db_calls import router, dao_document, dao_analysis, dao_attribute
 from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DEBUG, API_MONGODB_DB_NAME, API_HISTOGRAMS_PATH, \
     API_DEBUG_USER_ID, API_MOST_IMPORTANT_ATTRIBUTES
 from api.server_dao.analysis import DAOAsyncAnalysis
@@ -67,7 +66,7 @@ async def document_analysis_status(analysis_id: str,
             detail="Analysis with the specified hash does not exist"
         )
 
-    return _handle_analysis_status(analysis)
+    return await _handle_analysis_status(analysis)
 
 
 @router.get("/document-analysis-result",
