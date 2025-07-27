@@ -195,19 +195,20 @@ async def _get_graph_summary(
     else:
         return validation_result
 
-    attribute_dict = attribute.to_flat_dict_normalized()
-    if attribute_name not in attribute_dict:
-        raise HTTPException(
-            status_code=404,
-            detail="No attributes found connected with the analysis"
-        )
+    # attribute_dict = attribute.to_flat_dict_normalized()
+    # if attribute_name not in attribute_dict:
+    #     raise HTTPException(
+    #         status_code=404,
+    #         detail="No attributes found connected with the analysis"
+    #     )
 
     dto = compute_histogram_data(
         attribute_name=attribute_name,
         num_bin=num_bins,
         min_value=min_value,
         max_value=max_value,
-        additional_value=attribute_dict[attribute_name]
+        additional_value=None, #attribute_dict[attribute_name],
+        normalize=True
     )
 
     if existing_hash and existing_hash == dto.object_hash:

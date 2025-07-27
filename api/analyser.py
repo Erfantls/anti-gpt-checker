@@ -53,7 +53,7 @@ def plot_two_hists(data1, data2, title, metric_name="Metric", num_bin=21, min_va
     plt.clf()
 
 def compute_histogram_data(attribute_name: str, num_bin=21,
-                           min_value=None, max_value=None, additional_value=None) -> HistogramDataDTO:
+                           min_value=None, max_value=None, additional_value=None, normalize=False) -> HistogramDataDTO:
     data_gen = [attribute[0][attribute_name] for attribute in GENERATED_FLAT_DICT]
     data_real = [attribute[0][attribute_name] for attribute in REAL_FLAT_DICT]
 
@@ -69,8 +69,8 @@ def compute_histogram_data(attribute_name: str, num_bin=21,
     w = (max_value - min_value) / num_bin
     bins = np.arange(min_value, max_value + w, w).tolist()
 
-    counts_gen, _ = np.histogram(data_gen, bins=bins)
-    counts_real, _ = np.histogram(data_real, bins=bins)
+    counts_gen, _ = np.histogram(data_gen, bins=bins, density=normalize)
+    counts_real, _ = np.histogram(data_real, bins=bins, density=normalize)
 
     histogram_llm = HistogramData(
         feature=attribute_name,
