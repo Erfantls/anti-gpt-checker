@@ -89,7 +89,7 @@ async def update_document(preprocessed_document: PreprocessedDocumentRequestData
 
         set_fields['updated_at'] = datetime.now()
 
-        if preprocessed_document.document_status:
+        if preprocessed_document.document_status is not None:
             set_fields['document_status'] = preprocessed_document.document_status
 
         await dao_async_document.update_one({"document_hash": preprocessed_document.document_hash, "owner_id": user_id},
@@ -109,6 +109,16 @@ async def trigger_document_analysis(document_hash: str, background_tasks: Backgr
         raise HTTPException(
             status_code=404,
             detail="Document with the specified hash does not exist"
+        )
+    if existing_doc.document_status != DocumentStatus.READY_FOR_ANALYSIS:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Document is not ready for analysis, its status is {existing_doc.document_status}, please wait for preprocessing to finish"
+        )
+    if existing_doc.plaintext_content is None:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Document plaintext content is None while its status is {existing_doc.document_status}, this should not happen, please contact support"
         )
     # generate analysis_id
     current_analysis_id = hashlib.sha256(f"{document_hash}_{type_of_analysis}_{user_id}".encode()).hexdigest()
