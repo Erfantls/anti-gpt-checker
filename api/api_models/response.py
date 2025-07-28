@@ -14,6 +14,10 @@ class DocumentPreprocessingStillRunningResponse(BaseModel):
     type: str = "DocumentPreprocessingStillRunningResponse"
     message: str = "Document preprocessing is still running, please wait and try again later"
 
+class DocumentPreprocessingFailedResponse(BaseModel):
+    type: str = "DocumentPreprocessingFailedResponse"
+    message: str = "Document preprocessing failed, please check the document format and try again"
+
 class DocumentPreprocessingFinishedResponse(BaseModel):
     type: str = "DocumentPreprocessingFinishedResponse"
     message: str = "Document preprocessing is finished, you can now analyze the document"

@@ -18,7 +18,7 @@ from api.api_models.response import BackgroundTaskStatusResponse, AnalysisResult
     HistogramDataDTO, DocumentDataWithAnalyses, DocumentLevelAnalysis, ChunkLevelAnalysis, ChunkLevelSubanalysis, \
     UserDocumentsWithAnalyses, DocumentLevelAnalysisAdditionalDetails, ChunkLevelAnalysisAdditionalDetails, \
     ChunkLevelSubanalysisAdditionalDetails, DocumentWithAnalysesAdditionalDetails, HistogramDataWithMetadata, \
-    AllHistogramsDTO
+    AllHistogramsDTO, DocumentPreprocessingFailedResponse
 from api.analyser import compare_2_hists, compute_histogram_data
 from api.security import verify_token
 from api.utils import _validate_analysis, _handle_analysis_status, calculate_lightbulb_scores
@@ -50,8 +50,13 @@ async def document_preprocessing_status(document_hash: str,
         return DocumentPreprocessingStillRunningResponse()
     elif document.document_status == DocumentStatus.READY_FOR_ANALYSIS:
         return DocumentPreprocessingFinishedResponse()
+    elif document.document_status == DocumentStatus.FAILED:
+        return DocumentPreprocessingFailedResponse()
     else:
-        raise
+        raise HTTPException(
+            status_code=500,
+            detail="Error while checking document preprocessing status, please try again later"
+        )
 
 
 @router.get("/document-analysis-status",
@@ -293,13 +298,31 @@ async def _get_document_with_analyses_overview(document_hash: str, user_id: str)
 
     analyses: list[AnalysisInDB] = await dao_analysis.find_many_by_query({'document_hash': document.document_hash, 'type': AnalysisType.DOCUMENT_LEVEL, 'status': AnalysisStatus.FINISHED})
     if len(analyses) == 0:
+        all_analyses: List[AnalysisInDB] = await dao_analysis.find_many_by_query({'document_hash': document.document_hash, 'owner_id': user_id})
+        highest_document_level_analysis_status = AnalysisStatus.NOT_REQUESTED
+        highest_chunk_level_analysis_status = AnalysisStatus.NOT_REQUESTED
+        for analysis in all_analyses:
+            if analysis.type == AnalysisType.DOCUMENT_LEVEL:
+                if analysis.status > highest_document_level_analysis_status:
+                    highest_document_level_analysis_status = analysis.status
+            elif analysis.type == AnalysisType.CHUNK_LEVEL:
+                if analysis.status > highest_chunk_level_analysis_status:
+                    highest_chunk_level_analysis_status = analysis.status
+
+
         return DocumentDataWithAnalyses(
             document_hash=document.document_hash,
             document_status=document.document_status,
             document_name=document.document_name,
             document_upload_date=document.created_at.isoformat(),
-            document_level_analysis=None,
-            chunk_level_analyses=None
+            document_level_analysis=DocumentLevelAnalysis(
+                status=highest_document_level_analysis_status,
+                lightbulb_features=[]
+            ),
+            chunk_level_analyses=ChunkLevelAnalysis(
+                status=highest_chunk_level_analysis_status,
+                subanalyses=[]
+            )
         )
 
     newest_analyses: AnalysisInDB = sorted(analyses, key=lambda x: x.start_time, reverse=True)[0]
@@ -316,10 +339,17 @@ async def _get_document_with_analyses_overview(document_hash: str, user_id: str)
         lightbulb_features=await calculate_lightbulb_scores(attribute, API_MOST_IMPORTANT_ATTRIBUTES)
     )
 
-    chunk_analyses: list[AnalysisInDB] = await dao_analysis.find_many_by_query({'document_hash': document.document_hash, 'type': AnalysisType.CHUNK_LEVEL, 'status': AnalysisStatus.FINISHED})
+    chunk_analyses: list[AnalysisInDB] = await dao_analysis.find_many_by_query({'document_hash': document.document_hash,
+                                                                                'type': AnalysisType.CHUNK_LEVEL, 'status': AnalysisStatus.FINISHED})
     if len(chunk_analyses) == 0:
+        all_analyses: List[AnalysisInDB] = await dao_analysis.find_many_by_query({'document_hash': document.document_hash,
+                                                                                'type': AnalysisType.CHUNK_LEVEL})
+        highest_chunk_level_analysis_status = AnalysisStatus.NOT_REQUESTED
+        for analysis in all_analyses:
+            if analysis.status > highest_chunk_level_analysis_status:
+                highest_chunk_level_analysis_status = analysis.status
         chunk_level_analysis = ChunkLevelAnalysis(
-            status=AnalysisStatus.NOT_FINISHED,
+            status=highest_chunk_level_analysis_status,
             subanalyses=[]
         )
     else:

@@ -41,9 +41,13 @@ async def post_document(preprocessed_document: PreprocessedDocumentRequestData,
             detail="Document with the specified hash already exists, please use a different ID"
         )
     else:
+        if preprocessed_document.document_status:
+            document_status = preprocessed_document.document_status
+        else:
+            document_status = DocumentStatus.READY_FOR_ANALYSIS if preprocessed_document.preprocessed_content is not None else DocumentStatus.PREPROCESS_RUNNING
         document = Document(
             document_name=preprocessed_document.document_name,
-            document_status=DocumentStatus.READY_FOR_ANALYSIS if preprocessed_document.preprocessed_content is not None else DocumentStatus.PREPROCESS_RUNNING,
+            document_status=document_status,
             document_hash=preprocessed_document.document_hash,
             plaintext_content=preprocessed_document.preprocessed_content,
             filepath=preprocessed_document.filepath,
@@ -76,6 +80,7 @@ async def update_document(preprocessed_document: PreprocessedDocumentRequestData
         else:
             set_fields['document_status'] = DocumentStatus.PREPROCESS_RUNNING
 
+
         for field in preprocessed_document.dict():
             if preprocessed_document.dict()[field] is not None:
                 set_fields[field] = preprocessed_document.dict()[field]
@@ -83,6 +88,9 @@ async def update_document(preprocessed_document: PreprocessedDocumentRequestData
                     set_fields['document_status'] = DocumentStatus.READY_FOR_ANALYSIS
 
         set_fields['updated_at'] = datetime.now()
+
+        if preprocessed_document.document_status:
+            set_fields['document_status'] = preprocessed_document.document_status
 
         await dao_async_document.update_one({"document_hash": preprocessed_document.document_hash, "owner_id": user_id},
                                             {'$set': set_fields})

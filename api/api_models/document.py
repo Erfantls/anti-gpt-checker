@@ -10,6 +10,7 @@ from models.base_mongo_model import MongoDBModel, MongoObjectId
 class DocumentStatus(str, Enum):
     PREPROCESS_RUNNING = "preprocess_running"
     READY_FOR_ANALYSIS = "ready_for_analysis"
+    FAILED = "preprocessing_failed"
 
 
 class Document(BaseModel):

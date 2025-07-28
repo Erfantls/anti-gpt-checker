@@ -13,11 +13,42 @@ class AnalysisType(str, Enum):
     CHUNK_LEVEL = "chunk_level"
 
 class AnalysisStatus(str, Enum):
-    QUEUED = "queued"
-    RUNNING = "running"
     FINISHED = "finished"
+    RUNNING = "running"
+    QUEUED = "queued"
     FAILED = "failed"
-    NOT_FINISHED = "not_finished"
+    NOT_REQUESTED = "not_requested"
+
+    _order = [
+        FINISHED,
+        RUNNING,
+        QUEUED,
+        FAILED,
+        NOT_REQUESTED
+    ]
+
+    def _order_index(self):
+        return self._order.index(self)
+
+    def __lt__(self, other):
+        if not isinstance(other, AnalysisStatus):
+            return NotImplemented
+        return self._order_index() < other._order_index()
+
+    def __le__(self, other):
+        if not isinstance(other, AnalysisStatus):
+            return NotImplemented
+        return self._order_index() <= other._order_index()
+
+    def __gt__(self, other):
+        if not isinstance(other, AnalysisStatus):
+            return NotImplemented
+        return self._order_index() > other._order_index()
+
+    def __ge__(self, other):
+        if not isinstance(other, AnalysisStatus):
+            return NotImplemented
+        return self._order_index() >= other._order_index()
 
 class Analysis(BaseModel):
     analysis_id: str

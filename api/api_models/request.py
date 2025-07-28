@@ -2,6 +2,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
+from api.api_models.document import DocumentStatus
 
 
 class PreprocessedDocumentRequestData(BaseModel):
@@ -9,6 +10,7 @@ class PreprocessedDocumentRequestData(BaseModel):
     document_hash: str
     preprocessed_content: Optional[str]
     filepath: Optional[str]
+    document_status: Optional[DocumentStatus]
 
 class LightbulbScoreRequestData(BaseModel):
     attribute_names: List[str]
