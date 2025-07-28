@@ -1,16 +1,20 @@
 import asyncio
 import uuid
-from typing import Callable, Coroutine, Tuple, Dict
+import os
+from typing import Coroutine, Dict
 
 class AnalysisTaskQueue:
-    def __init__(self):
+    def __init__(self, max_concurrent_tasks: int = 1):
         self.queue = asyncio.Queue()
-        self._worker_task = None
-        self._task_lookup: Dict[str, int] = {}  # task_id -> queue index (updated on enqueue)
+        self._worker_tasks = []
+        self._task_lookup: Dict[str, int] = {}
+        self.max_concurrent_tasks = max_concurrent_tasks
 
     def start_worker(self):
-        if self._worker_task is None:
-            self._worker_task = asyncio.create_task(self._worker())
+        if not self._worker_tasks:  # Only start if not already started
+            for _ in range(self.max_concurrent_tasks):
+                task = asyncio.create_task(self._worker())
+                self._worker_tasks.append(task)
 
     async def enqueue(self, coro: Coroutine) -> str:
         task_id = str(uuid.uuid4())
@@ -18,12 +22,11 @@ class AnalysisTaskQueue:
         return task_id
 
     def get_position(self, task_id: str) -> int:
-        # Convert queue to list and search for the task ID
-        queue_items = list(self.queue._queue)  # _queue is internal, but okay for read-only inspection
+        queue_items = list(self.queue._queue)
         for idx, (tid, _) in enumerate(queue_items):
             if tid == task_id:
-                return idx + 1  # position in line (1-based)
-        return 0  # not found or already processed
+                return idx + 1
+        return 0
 
     async def _worker(self):
         while True:
@@ -32,4 +35,5 @@ class AnalysisTaskQueue:
                 await task_coro
             except Exception as e:
                 print(f"[Analysis Queue] Task {task_id} failed: {e}")
-            self.queue.task_done()
+            finally:
+                self.queue.task_done()

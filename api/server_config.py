@@ -85,4 +85,5 @@ API_SHARED_SECRET_KEY = os.getenv("API_SHARED_SECRET_KEY")
 API_DEBUG = (os.getenv("API_DEBUG", "False").lower() in ["1", "true", "t", "yes", "y"])
 API_DEBUG_USER_ID = os.getenv("API_DEBUG_USER_ID", "0000000000000000000000000")
 
-ANALYSIS_TASK_QUEUE: AnalysisTaskQueue = AnalysisTaskQueue()
+API_MAX_CONCURRENT_TASKS = int(os.getenv("API_MAX_CONCURRENT_TASKS", "1"))
+ANALYSIS_TASK_QUEUE: AnalysisTaskQueue = AnalysisTaskQueue(API_MAX_CONCURRENT_TASKS)
