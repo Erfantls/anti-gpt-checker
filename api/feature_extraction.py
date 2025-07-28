@@ -44,12 +44,12 @@ async def post_document(preprocessed_document: PreprocessedDocumentRequestData,
         if preprocessed_document.document_status:
             document_status = preprocessed_document.document_status
         else:
-            document_status = DocumentStatus.READY_FOR_ANALYSIS if preprocessed_document.preprocessed_content is not None else DocumentStatus.PREPROCESS_RUNNING
+            document_status = DocumentStatus.READY_FOR_ANALYSIS if preprocessed_document.plaintext_content is not None else DocumentStatus.PREPROCESS_RUNNING
         document = Document(
             document_name=preprocessed_document.document_name,
             document_status=document_status,
             document_hash=preprocessed_document.document_hash,
-            plaintext_content=preprocessed_document.preprocessed_content,
+            plaintext_content=preprocessed_document.plaintext_content,
             filepath=preprocessed_document.filepath,
             owner_id=user_id,
             created_at=datetime.now(),
