@@ -19,12 +19,12 @@ class AnalysisStatus(str, Enum):
     FAILED = "failed"
     NOT_REQUESTED = "not_requested"
 
-    _order = [
-        FINISHED,
-        RUNNING,
-        QUEUED,
+    _order = [ # ordered from least to most advanced
+        NOT_REQUESTED,
         FAILED,
-        NOT_REQUESTED
+        QUEUED,
+        RUNNING,
+        FINISHED
     ]
 
     def _order_index(self):
