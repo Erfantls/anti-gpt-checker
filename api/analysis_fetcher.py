@@ -135,7 +135,6 @@ async def get_graph_image(analysis_id: str, attribute_name: str,
 
 @router.get("/histogram-data", response_model=HistogramDataDTO, status_code=status.HTTP_200_OK)
 async def get_graph_summary(
-    analysis_id: str,
     attribute_name: str,
     num_bins: int = Query(21, gt=1, le=100),
     min_value: Optional[float] = Query(None),
@@ -144,7 +143,7 @@ async def get_graph_summary(
     _: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID
 ):
     return await _get_graph_summary(
-        analysis_id=analysis_id,
+        analysis_id=None,
         attribute_name=attribute_name,
         num_bins=num_bins,
         min_value=min_value,
@@ -154,7 +153,6 @@ async def get_graph_summary(
 
 @router.get("/all-histograms-data", response_model=AllHistogramsDTO, status_code=status.HTTP_200_OK)
 async def get_all_graph_summary(
-    analysis_id: str,
     num_bins: int = Query(21, gt=1, le=100),
     existing_hash: Optional[str] = Query(None, alias="hash"),
     _: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID
@@ -162,7 +160,7 @@ async def get_all_graph_summary(
     histograms_data_with_metadata: List[HistogramDataWithMetadata] = []
     for attribute_name in API_MOST_IMPORTANT_ATTRIBUTES:
         histogram_data = await _get_graph_summary(
-            analysis_id=analysis_id,
+            analysis_id=None,
             attribute_name=attribute_name,
             num_bins=num_bins,
             min_value=None,
@@ -186,18 +184,18 @@ async def get_all_graph_summary(
 
 
 async def _get_graph_summary(
-    analysis_id: str,
+    analysis_id: Optional[str],
     attribute_name: str,
     num_bins: int,
     min_value: Optional[float],
     max_value: Optional[float],
     existing_hash: Optional[str]
 ):
-    validation_result = await _validate_analysis(analysis_id)
-    if isinstance(validation_result, Tuple):
-        analysis, attribute = validation_result
-    else:
-        return validation_result
+    # validation_result = await _validate_analysis(analysis_id)
+    # if isinstance(validation_result, Tuple):
+    #     analysis, attribute = validation_result
+    # else:
+    #     return validation_result
 
     # attribute_dict = attribute.to_flat_dict_normalized()
     # if attribute_name not in attribute_dict:
