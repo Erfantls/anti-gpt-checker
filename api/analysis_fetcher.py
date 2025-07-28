@@ -298,7 +298,7 @@ async def _get_document_with_analyses_overview(document_hash: str, user_id: str)
 
     analyses: list[AnalysisInDB] = await dao_analysis.find_many_by_query({'document_hash': document.document_hash, 'type': AnalysisType.DOCUMENT_LEVEL, 'status': AnalysisStatus.FINISHED})
     if len(analyses) == 0:
-        all_analyses: List[AnalysisInDB] = await dao_analysis.find_many_by_query({'document_hash': document.document_hash, 'owner_id': user_id})
+        all_analyses: List[AnalysisInDB] = await dao_analysis.find_many_by_query({'document_hash': document.document_hash})
         highest_document_level_analysis_status = AnalysisStatus.NOT_REQUESTED
         highest_chunk_level_analysis_status = AnalysisStatus.NOT_REQUESTED
         for analysis in all_analyses:
