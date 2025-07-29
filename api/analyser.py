@@ -82,14 +82,21 @@ def compute_histogram_data(attribute_name: str, num_bin=21,
         max_value = max(np.percentile(data_gen, 95), np.percentile(data_real, 95))
 
     # Clip values
-    data_gen = np.clip(data_gen, None, max_value)
-    data_real = np.clip(data_real, None, max_value)
+    data_gen = [d if d < max_value else max_value for d in data_gen]
+    data_real = [d if d < max_value else max_value for d in data_real]
 
     w = (max_value - min_value) / num_bin
     bins = np.arange(min_value, max_value + w, w).tolist()
 
-    counts_gen, _ = np.histogram(data_gen, bins=bins, density=normalize)
-    counts_real, _ = np.histogram(data_real, bins=bins, density=normalize)
+    if normalize:
+        weights_gen = np.ones_like(data_gen) / len(data_gen)
+        weights_real = np.ones_like(data_real) / len(data_real)
+
+        counts_gen, _ = np.histogram(data_gen, bins=bins, weights=weights_gen)
+        counts_real, _ = np.histogram(data_real, bins=bins, weights=weights_real)
+    else:
+        counts_gen, _ = np.histogram(data_gen, bins=bins)
+        counts_real, _ = np.histogram(data_real, bins=bins)
 
     histogram_llm = HistogramData(
         feature=attribute_name,

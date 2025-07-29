@@ -102,7 +102,7 @@ class HistogramData(BaseModel):
     feature: str
     data_type: Literal["llm-generated", "human-written"]
     bins: List[float]      # bin edges
-    counts: List[int]      # histogram counts per bin
+    counts: List[float]      # histogram counts per bin #FIXME change "counts" to "heights"
 
 class HistogramDataDTO(BaseModel):
     llm: HistogramData
