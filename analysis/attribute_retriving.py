@@ -687,7 +687,7 @@ def perform_parallel_partial_analysis(text_chunks: List[str], lang_code: str,
         for index, text_chunk in enumerate(text_chunks)
     ]
 
-    with ThreadPoolExecutor() as executor:
+    with ThreadPoolExecutor(max_workers=4) as executor:
         partial_attributes = list(executor.map(_analyze_single_chunk, args_list))
 
     return partial_attributes

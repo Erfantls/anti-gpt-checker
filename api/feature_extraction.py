@@ -4,6 +4,7 @@ import hashlib
 from datetime import datetime
 from typing import Optional
 
+import concurrent.futures
 from fastapi import BackgroundTasks, Depends, APIRouter, HTTPException, status
 
 from analysis.attribute_retriving import perform_full_analysis, perform_partial_analysis_independently
@@ -25,6 +26,11 @@ router = APIRouter()
 dao_async_analysis: DAOAsyncAnalysis = DAOAsyncAnalysis()
 dao_async_document: DAOAsyncDocument = DAOAsyncDocument()
 
+ANALYSIS_EXECUTOR = None
+def init_analysis_executor():
+    global ANALYSIS_EXECUTOR
+    if ANALYSIS_EXECUTOR is None:
+        ANALYSIS_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=8)
 
 @router.post("/add-document",
              response_model=dict,
@@ -184,7 +190,7 @@ dao_attribute: DAOAttributePL = DAOAttributePL(collection_name=API_ATTRIBUTES_CO
 
 async def _perform_analysis(*args, **kwargs):
     loop = asyncio.get_running_loop()
-    await loop.run_in_executor(None, _blocking_analysis, *args)
+    await loop.run_in_executor(ANALYSIS_EXECUTOR, _blocking_analysis, *args)
 
 def _blocking_analysis(analysis_id: str, document_hash, user_id: str, type_of_analysis: AnalysisType, document_level_attributes_id: Optional[MongoObjectId]):
     dao_analysis.update_one({'analysis_id': analysis_id},
