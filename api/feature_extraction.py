@@ -30,7 +30,7 @@ ANALYSIS_EXECUTOR = None
 def init_analysis_executor():
     global ANALYSIS_EXECUTOR
     if ANALYSIS_EXECUTOR is None:
-        ANALYSIS_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+        ANALYSIS_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
 @router.post("/add-document",
              response_model=dict,
