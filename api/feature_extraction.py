@@ -81,7 +81,7 @@ async def update_document(preprocessed_document: PreprocessedDocumentRequestData
         )
     else:
         set_fields = {}
-        if existing_doc.plaintext_content:
+        if preprocessed_document.plaintext_content:
             set_fields['document_status'] = DocumentStatus.READY_FOR_ANALYSIS
         else:
             set_fields['document_status'] = DocumentStatus.PREPROCESS_RUNNING
