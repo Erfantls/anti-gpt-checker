@@ -77,7 +77,7 @@ def compute_histogram_data(attribute_name: str, num_bin=21,
     data_real = [attribute[0][attribute_name] for attribute in REAL_FLAT_DICT]
 
     if min_value is None:
-        min_value = 0
+        min_value = min(np.percentile(data_gen, 5), np.percentile(data_real, 5))
     if max_value is None:
         max_value = max(np.percentile(data_gen, 95), np.percentile(data_real, 95))
 
