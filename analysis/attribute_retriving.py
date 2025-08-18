@@ -21,10 +21,12 @@ import pycld2 as cld2
 import cld3
 from textblob import TextBlob
 
+from concurrent.futures import ThreadPoolExecutor
+
 from analysis.nlp_transformations import replace_links_with_text, remove_stopwords_punctuation_emojis_and_splittings, \
     lemmatize_text, split_into_sentences, is_abbreviation, get_text_for_punctuation_analysis
 from models.attribute import AttributeNoDBParametersPL, AttributeNoDBParametersEN, PartialAttribute, PartialAttributeEN, \
-    PartialAttributePL
+    PartialAttributePL, AttributePLInDB, AttributeENInDB
 from models.combination_features import CombinationFeatures
 
 from models.stylometrix_metrics import AllStyloMetrixFeaturesEN, AllStyloMetrixFeaturesPL
@@ -661,6 +663,35 @@ def perform_partial_analysis(text_chunks: List[str], lang_code: str, skip_perple
     return partial_attributes
 
 
+def _analyze_single_chunk(args: Tuple[int, str, str, bool, bool]) -> Union[PartialAttributeEN, PartialAttributePL]:
+    index, text_chunk, lang_code, skip_perplexity_calc, skip_stylometrix_calc = args
+    full_analysis_results = perform_full_analysis(
+        text_chunk, lang_code, skip_perplexity_calc,
+        skip_stylometrix_calc, skip_partial_attributes=True
+    )
+    if lang_code == "en":
+        return PartialAttributeEN(index=index, partial_text=text_chunk, attribute=full_analysis_results)
+    elif lang_code == "pl":
+        return PartialAttributePL(index=index, partial_text=text_chunk, attribute=full_analysis_results)
+    else:
+        raise ValueError(f"Language {lang_code} is not supported")
+
+def perform_parallel_partial_analysis(text_chunks: List[str], lang_code: str,
+                             skip_perplexity_calc: bool = True,
+                             skip_stylometrix_calc: bool = False) -> List[PartialAttribute]:
+    if len(text_chunks) < 2:
+        return []
+
+    args_list = [
+        (index, text_chunk, lang_code, skip_perplexity_calc, skip_stylometrix_calc)
+        for index, text_chunk in enumerate(text_chunks)
+    ]
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        partial_attributes = list(executor.map(_analyze_single_chunk, args_list))
+
+    return partial_attributes
+
 def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool = False,
                           skip_stylometrix_calc: bool = False, skip_partial_attributes: bool = False) -> Union[
     AttributeNoDBParametersPL, AttributeNoDBParametersEN]:
@@ -818,3 +849,20 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
                                                                                                     partial_attributes_values_dicts)
         temp_attribute.combination_features = combination_features
         return temp_attribute
+
+
+def perform_partial_analysis_independently(document_level_attribute: Union[AttributePLInDB, AttributeENInDB],
+                                           text: str, lang_code: str, skip_perplexity_calc: bool = False, skip_stylometrix_calc: bool = False) -> Tuple[List[PartialAttribute], CombinationFeatures]:
+    split_sentences: List[str] = split_into_sentences(text, lang_code)
+    text_chunks = split_text_into_chunks(split_sentences)
+    partial_attributes = perform_partial_analysis(text_chunks, lang_code, skip_perplexity_calc, skip_stylometrix_calc)
+    if len(partial_attributes) == 0:
+        combination_features = CombinationFeatures.init_from_stylometrix_and_partial_attributes(document_level_attribute.stylometrix_metrics,
+                                                                                                [document_level_attribute.dict()])
+    else:
+        partial_attributes_values_dicts: list[dict] = \
+            [partial_attribute.attribute.dict() for partial_attribute in partial_attributes]
+        combination_features = CombinationFeatures.init_from_stylometrix_and_partial_attributes(document_level_attribute.stylometrix_metrics,
+                                                                                                partial_attributes_values_dicts)
+    return partial_attributes, combination_features
+

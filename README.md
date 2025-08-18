@@ -12,11 +12,11 @@ This project aims to provide a reliable way of distinguishing between AI generat
   - [NKJP (1-gram)](https://zil.ipipan.waw.pl/NKJPNGrams?action=AttachFile&do=get&target=1grams.gz)
   - Unpack the archives and move files `odm.txt` and `1grams` into `data` directory inside the project
 - Install the rest of the dependencies `pip install -r requirements.txt`
-  - If install fails on `pycld3` run `sudo apt-get install -y libprotobuf-dev protobuf-compiler`
+  - If install fails on `pycld3` run `sudo apt-get install -y libprotobuf-dev protobuf-compiler gcc g++`
 
 
-# .env file
-Create a .env file in the root directory of the project with the following fields:
+# .env files
+Create a .env file for the core of *anti-gpt-checker* in the root directory of the project with the following fields:
 ```bash
 MONGODB_URI=""
 MONGODB_PORT=""
@@ -31,3 +31,20 @@ RELATIVE_PATH_TO_PROJECT="" # relative path to the project directory from workin
 DICT_FILE_1GRAMS_PATH="data/1grams"
 DICT_FILE_ODM_PATH="data/odm.txt"
 ```
+
+Create a .env file for the API part of *anti-gpt-checker* in the `api/` directory with the following fields:
+```bash
+API_MONGODB_URI=""
+API_MONGODB_PORT=""
+API_MONGODB_DB_NAME=""
+API_MONGODB_AUTH_USER=""
+API_MONGODB_AUTH_PASS="" 
+API_MONGODB_AUTH_DB="" # usually admin
+API_DEBUG="" # True or False
+API_HISTOGRAMS_PATH=""
+```
+
+# Docker
+
+To run the project using Docker, you need to complete the `Initialize Polish dictionaries` step first. The docker-compose file will use the dictionaries from the `data` directory.
+

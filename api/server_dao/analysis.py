@@ -1,0 +1,22 @@
+from api.server_config import API_ASYNC_MONGO_CLIENT, API_MONGODB_DB_NAME, API_ANALYSIS_COLLECTION_NAME, \
+    API_MONGO_CLIENT
+from api.api_models.analysis import Analysis, AnalysisInDB
+from dao.base import DAOBase
+from dao.base_async import DAOBaseAsync
+
+
+class DAOAsyncAnalysis(DAOBaseAsync):
+    def __init__(self, collection_name=API_ANALYSIS_COLLECTION_NAME):
+        super().__init__(API_ASYNC_MONGO_CLIENT,
+                         API_MONGODB_DB_NAME,
+                         collection_name,
+                         Analysis,
+                         AnalysisInDB)
+
+class DAOAnalysis(DAOBase):
+    def __init__(self, collection_name=API_ANALYSIS_COLLECTION_NAME):
+        super().__init__(API_MONGO_CLIENT,
+                         API_MONGODB_DB_NAME,
+                         collection_name,
+                         Analysis,
+                         AnalysisInDB)
