@@ -81,7 +81,7 @@ async def _handle_analysis_status(analysis: AnalysisInDB) -> BackgroundTaskStatu
         raise Exception(f"Unknown analysis status: {analysis.status}")
 
 
-async def calculate_lightbulb_scores(attribute, attribute_names) -> list[LightbulbScoreData]:
+async def calculate_lightbulb_scores(attribute, attribute_names, is_chunk_attribute: bool = False) -> list[LightbulbScoreData]:
     attribute_dict = attribute.to_flat_dict_normalized()
     lightbulb_score_data = []
     for attribute_name in attribute_names:
@@ -95,7 +95,7 @@ async def calculate_lightbulb_scores(attribute, attribute_names) -> list[Lightbu
 
         attribute_value = attribute_dict[attribute_name]
         lightbulb_score_value = calculate_lightbulb_score(attribute_value, attribute_name,
-                                                          category=category)
+                                                          category=category, is_chunk_attribute=is_chunk_attribute)
         lightbulb_score_data.append(LightbulbScoreData(
             attribute_name=attribute_name,
             type=LightbulbScoreType.BIDIRECTIONAL,

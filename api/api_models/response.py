@@ -122,6 +122,7 @@ class HistogramDataDTO(BaseModel):
 class HistogramDataWithMetadata(BaseModel):
     histogram_data: HistogramDataDTO
     attribute_name: str
+    is_partial_data: bool
 
 class AllHistogramsDTO(BaseModel):
     histograms_data_with_metadata: List[HistogramDataWithMetadata]

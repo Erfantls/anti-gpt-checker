@@ -15,18 +15,36 @@ dao_attribute_reference: DAOAttributePL = DAOAttributePL(collection_name=API_ATT
 
 GENERATED_FLAT_DICT = None
 REAL_FLAT_DICT = None
+GENERATED_PARTIAL_FLAT_DICT = None
+REAL_PARTIAL_FLAT_DICT = None
 LIGHTBULB_GAUSSIAN_KDE_DATA = None
+LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL = None
 
 def load_reference_attributes() -> None:
-    global GENERATED_FLAT_DICT, REAL_FLAT_DICT
-    if GENERATED_FLAT_DICT is not None and REAL_FLAT_DICT is not None:
+    global GENERATED_FLAT_DICT, REAL_FLAT_DICT, GENERATED_PARTIAL_FLAT_DICT, REAL_PARTIAL_FLAT_DICT
+    if GENERATED_FLAT_DICT is not None and REAL_FLAT_DICT is not None and GENERATED_PARTIAL_FLAT_DICT is not None and REAL_PARTIAL_FLAT_DICT is not None:
         return
     generated: List[AttributePLInDB] = dao_attribute_reference.find_many_by_query({"is_generated": True})
     real: List[AttributePLInDB] = dao_attribute_reference.find_many_by_query({"is_generated": False})
 
     GENERATED_FLAT_DICT = [(x.to_flat_dict_normalized(), 1) for x in generated]
     REAL_FLAT_DICT = [(x.to_flat_dict_normalized(), 0) for x in real]
-    print(f"LOADED {len(GENERATED_FLAT_DICT) + len(REAL_FLAT_DICT)} attributes from reference collection")
+    print(f"LOADED {len(GENERATED_FLAT_DICT) + len(REAL_FLAT_DICT)} document attributes from reference collection")
+
+    GENERATED_PARTIAL_FLAT_DICT = []
+    for sample in generated:
+        if sample.partial_attributes is not None and len(sample.partial_attributes) > 0:
+            for partial_attribute in sample.partial_attributes:
+                GENERATED_PARTIAL_FLAT_DICT.append((partial_attribute.attribute.to_flat_dict_normalized(), 1))
+
+    REAL_PARTIAL_FLAT_DICT = []
+    for sample in real:
+        if sample.partial_attributes is not None and len(sample.partial_attributes) > 0:
+            for partial_attribute in sample.partial_attributes:
+                REAL_PARTIAL_FLAT_DICT.append((partial_attribute.attribute.to_flat_dict_normalized(), 0))
+
+
+    print(f"LOADED {len(GENERATED_PARTIAL_FLAT_DICT) + len(REAL_PARTIAL_FLAT_DICT)} paragraph attributes from reference collection")
 
 def precompile_gaussian_kde() -> None:
     """
@@ -35,15 +53,25 @@ def precompile_gaussian_kde() -> None:
     """
     assert GENERATED_FLAT_DICT is not None
     assert REAL_FLAT_DICT is not None
+    assert GENERATED_PARTIAL_FLAT_DICT is not None
+    assert REAL_PARTIAL_FLAT_DICT is not None
 
-    global LIGHTBULB_GAUSSIAN_KDE_DATA
+    global LIGHTBULB_GAUSSIAN_KDE_DATA, LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL
     LIGHTBULB_GAUSSIAN_KDE_DATA = {}
+    LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL = {}
     for attribute_name in API_MOST_IMPORTANT_ATTRIBUTES:
         gen_values = [attribute[0][attribute_name] for attribute in GENERATED_FLAT_DICT]
         real_values = [attribute[0][attribute_name] for attribute in REAL_FLAT_DICT]
         real_kde = gaussian_kde(real_values, bw_method='scott')
         gen_kde = gaussian_kde(gen_values, bw_method='scott')
         LIGHTBULB_GAUSSIAN_KDE_DATA[attribute_name] = (real_kde, gen_kde)
+
+        if attribute_name in GENERATED_PARTIAL_FLAT_DICT[0][0]:
+            gen_partial_values = [attribute[0][attribute_name] for attribute in GENERATED_PARTIAL_FLAT_DICT]
+            real_partial_values = [attribute[0][attribute_name] for attribute in REAL_PARTIAL_FLAT_DICT]
+            real_kde = gaussian_kde(real_partial_values, bw_method='scott')
+            gen_kde = gaussian_kde(gen_partial_values, bw_method='scott')
+            LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL[attribute_name] = (real_kde, gen_kde)
 
 def plot_two_hists(data1, data2, title, metric_name="Metric", num_bin=21, min_value=0, max_value=5, top=0.5,
                    additional_value=None, file_name=""):
@@ -72,9 +100,13 @@ def plot_two_hists(data1, data2, title, metric_name="Metric", num_bin=21, min_va
     plt.clf()
 
 def compute_histogram_data(attribute_name: str, num_bin=21,
-                           min_value=None, max_value=None, additional_value=None, normalize=False) -> HistogramDataDTO:
-    data_gen = [attribute[0][attribute_name] for attribute in GENERATED_FLAT_DICT]
-    data_real = [attribute[0][attribute_name] for attribute in REAL_FLAT_DICT]
+                           min_value=None, max_value=None, additional_value=None, normalize=False, is_partial_attribute:bool=False) -> HistogramDataDTO:
+    if is_partial_attribute:
+        data_gen = [attribute[0][attribute_name] for attribute in GENERATED_PARTIAL_FLAT_DICT]
+        data_real = [attribute[0][attribute_name] for attribute in REAL_PARTIAL_FLAT_DICT]
+    else:
+        data_gen = [attribute[0][attribute_name] for attribute in GENERATED_FLAT_DICT]
+        data_real = [attribute[0][attribute_name] for attribute in REAL_FLAT_DICT]
 
     if min_value is None:
         min_value = min(np.percentile(data_gen, 5), np.percentile(data_real, 5))
@@ -161,7 +193,8 @@ def _relative_density(value: float,
 
 def calculate_lightbulb_score(attribute_value,
                               attribute_name,
-                              category=LightbulbScoreType.BIDIRECTIONAL) -> float:
+                              category=LightbulbScoreType.BIDIRECTIONAL,
+                              is_chunk_attribute: bool = False) -> float:
     """
     Returns a scalar whose range depends on *category*.
 
@@ -169,15 +202,26 @@ def calculate_lightbulb_score(attribute_value,
     HUMAN_WRITTEN : [-1, 0]   (close to -1 → confidently human)
     LLM_GENERATED : [ 0, 1]   (close to  1 → confidently LLM)
     """
-    if attribute_name in LIGHTBULB_GAUSSIAN_KDE_DATA:
-        real_kde, gen_kde = LIGHTBULB_GAUSSIAN_KDE_DATA[attribute_name]
-    else:
-        gen_values = [attribute[0][attribute_name] for attribute in GENERATED_FLAT_DICT]
-        real_values = [attribute[0][attribute_name] for attribute in REAL_FLAT_DICT]
+    if is_chunk_attribute:
+        if attribute_name in LIGHTBULB_GAUSSIAN_KDE_DATA:
+            real_kde, gen_kde = LIGHTBULB_GAUSSIAN_KDE_DATA[attribute_name]
+        else:
+            gen_values = [attribute[0][attribute_name] for attribute in GENERATED_FLAT_DICT]
+            real_values = [attribute[0][attribute_name] for attribute in REAL_FLAT_DICT]
 
-        # KDEs give smooth non-parametric estimates; 1-liner to swap in any other model.
-        real_kde = gaussian_kde(real_values, bw_method='scott')
-        gen_kde  = gaussian_kde(gen_values,  bw_method='scott')
+            # KDEs give smooth non-parametric estimates; 1-liner to swap in any other model.
+            real_kde = gaussian_kde(real_values, bw_method='scott')
+            gen_kde = gaussian_kde(gen_values, bw_method='scott')
+    else:
+        if attribute_name in LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL:
+            real_kde, gen_kde = LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL[attribute_name]
+        else:
+            gen_values = [attribute[0][attribute_name] for attribute in GENERATED_PARTIAL_FLAT_DICT]
+            real_values = [attribute[0][attribute_name] for attribute in REAL_PARTIAL_FLAT_DICT]
+
+            # KDEs give smooth non-parametric estimates; 1-liner to swap in any other model.
+            real_kde = gaussian_kde(real_values, bw_method='scott')
+            gen_kde  = gaussian_kde(gen_values,  bw_method='scott')
 
     raw = _relative_density(attribute_value, real_kde, gen_kde)  # [-1,1]
 

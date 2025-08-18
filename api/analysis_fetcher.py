@@ -133,23 +133,30 @@ async def get_graph_image(analysis_id: str, attribute_name: str,
     image_path = f"{API_HISTOGRAMS_PATH}/{analysis_id}_{attribute_name}.png"
     return FileResponse(image_path, media_type="image/png")
 
-@router.get("/histogram-data", response_model=HistogramDataDTO, status_code=status.HTTP_200_OK)
+@router.get("/histogram-data", response_model=HistogramDataWithMetadata, status_code=status.HTTP_200_OK)
 async def get_graph_summary(
     attribute_name: str,
     num_bins: int = Query(21, gt=1, le=100),
     min_value: Optional[float] = Query(None),
     max_value: Optional[float] = Query(None),
     existing_hash: Optional[str] = Query(None, alias="hash"),
+    is_partial_attribute: Optional[bool] = Query(False),
     _: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID
 ):
-    return await _get_graph_summary(
+    histogram_data= await _get_graph_summary(
         analysis_id=None,
         attribute_name=attribute_name,
         num_bins=num_bins,
         min_value=min_value,
         max_value=max_value,
-        existing_hash=existing_hash
+        existing_hash=existing_hash,
+        is_partial_attribute=is_partial_attribute
     )
+
+    return HistogramDataWithMetadata(
+        histogram_data=histogram_data,
+        attribute_name=attribute_name,
+        is_partial_data=is_partial_attribute)
 
 @router.get("/all-histograms-data", response_model=AllHistogramsDTO, status_code=status.HTTP_200_OK)
 async def get_all_graph_summary(
@@ -165,11 +172,28 @@ async def get_all_graph_summary(
             num_bins=num_bins,
             min_value=None,
             max_value=None,
-            existing_hash=None
+            existing_hash=None,
+            is_partial_attribute=False
         )
         histograms_data_with_metadata.append(HistogramDataWithMetadata(
             histogram_data = histogram_data,
-            attribute_name=attribute_name)
+            attribute_name=attribute_name,
+            is_partial_data=False)
+        )
+
+        partial_histogram_data = await _get_graph_summary(
+            analysis_id=None,
+            attribute_name=attribute_name,
+            num_bins=num_bins,
+            min_value=None,
+            max_value=None,
+            existing_hash=None,
+            is_partial_attribute=True
+        )
+        histograms_data_with_metadata.append(HistogramDataWithMetadata(
+            histogram_data=partial_histogram_data,
+            attribute_name=attribute_name,
+            is_partial_data=True)
         )
 
     all_histograms_dto = AllHistogramsDTO(
@@ -189,7 +213,8 @@ async def _get_graph_summary(
     num_bins: int,
     min_value: Optional[float],
     max_value: Optional[float],
-    existing_hash: Optional[str]
+    existing_hash: Optional[str],
+    is_partial_attribute: bool=False
 ):
     # validation_result = await _validate_analysis(analysis_id)
     # if isinstance(validation_result, Tuple):
@@ -210,7 +235,8 @@ async def _get_graph_summary(
         min_value=min_value,
         max_value=max_value,
         additional_value=None, #attribute_dict[attribute_name],
-        normalize=True
+        normalize=True,
+        is_partial_attribute=is_partial_attribute
     )
 
     if existing_hash and existing_hash == dto.object_hash:

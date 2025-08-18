@@ -16,3 +16,14 @@
 - stylometrix_metrics.inflection.IN_V_ACT
 - combination_features.partial_attribute_statistics.standard_deviation_sentence_char_length.average
 - combination_features.partial_attribute_statistics.variance_sentence_char_length.average
+- average_sentence_word_length
+- average_sentence_char_length
+- punctuation_per_sentence
+- stylometrix_metrics.inflection.IN_N_6LOC
+- stylometrix_metrics.syntactic.SY_INIT
+- perplexity_base_normalized
+- stylometrix_metrics.grammatical_forms.G_NUM
+- text_errors_by_category.PUNCTUATION
+- stylometrix_metrics.inflection.IN_V_3S
+- stylometrix_metrics.grammatical_forms.G_N
+- combination_features.content_function_ratio
