@@ -199,6 +199,7 @@ def _blocking_analysis(analysis_id: str, document_hash, user_id: str, type_of_an
     document: DocumentInDB = dao_document.find_one_by_query({'document_hash': document_hash, 'owner_id': user_id})
     try:
         text_to_analyse = preprocess_text(document.plaintext_content)
+        dao_document.update_one({'document_hash': document_hash}, {'$set': {"plaintext_content_preprocessed": text_to_analyse}})
         if type_of_analysis == AnalysisType.DOCUMENT_LEVEL:
             analysis_result = perform_full_analysis(text_to_analyse, 'pl', skip_partial_attributes=True)
             attribute_to_insert = AttributePL(

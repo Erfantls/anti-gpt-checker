@@ -15,6 +15,7 @@ class DocumentStatus(str, Enum):
 
 class Document(BaseModel):
     plaintext_content: Optional[str]
+    plaintext_content_preprocessed: Optional[str] = None
     filepath: Optional[str]
     document_name: Optional[str]
     document_hash: str

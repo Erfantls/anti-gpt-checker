@@ -290,7 +290,7 @@ async def get_user_document_with_analyses_details(document_hash: str, user_id: s
             status_code=404,
             detail="Document with the specified hash does not exist"
         )
-    document_level_analysis_details = DocumentLevelAnalysisAdditionalDetails(analysed_text=document.plaintext_content)
+    document_level_analysis_details = DocumentLevelAnalysisAdditionalDetails(analysed_text=document.plaintext_content_preprocessed if document.plaintext_content_preprocessed else document.plaintext_content)
     chunk_analyses: list[AnalysisInDB] = await dao_analysis.find_many_by_query(
         {'document_hash': document.document_hash, 'type': AnalysisType.CHUNK_LEVEL, 'status': AnalysisStatus.FINISHED})
     if len(chunk_analyses) == 0:
