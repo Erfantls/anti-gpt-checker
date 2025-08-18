@@ -66,7 +66,7 @@ def precompile_gaussian_kde() -> None:
         gen_kde = gaussian_kde(gen_values, bw_method='scott')
         LIGHTBULB_GAUSSIAN_KDE_DATA[attribute_name] = (real_kde, gen_kde)
 
-        if attribute_name in GENERATED_PARTIAL_FLAT_DICT[0][0]:
+        if is_attribute_available_in_partial_attributes(attribute_name):
             gen_partial_values = [attribute[0][attribute_name] for attribute in GENERATED_PARTIAL_FLAT_DICT]
             real_partial_values = [attribute[0][attribute_name] for attribute in REAL_PARTIAL_FLAT_DICT]
             real_kde = gaussian_kde(real_partial_values, bw_method='scott')
@@ -102,8 +102,11 @@ def plot_two_hists(data1, data2, title, metric_name="Metric", num_bin=21, min_va
 def compute_histogram_data(attribute_name: str, num_bin=21,
                            min_value=None, max_value=None, additional_value=None, normalize=False, is_partial_attribute:bool=False) -> HistogramDataDTO:
     if is_partial_attribute:
-        data_gen = [attribute[0][attribute_name] for attribute in GENERATED_PARTIAL_FLAT_DICT]
-        data_real = [attribute[0][attribute_name] for attribute in REAL_PARTIAL_FLAT_DICT]
+        if is_attribute_available_in_partial_attributes(attribute_name):
+            data_gen = [attribute[0][attribute_name] for attribute in GENERATED_PARTIAL_FLAT_DICT]
+            data_real = [attribute[0][attribute_name] for attribute in REAL_PARTIAL_FLAT_DICT]
+        else:
+            raise ValueError(f"Attribute named {attribute_name} not available for partial analysis")
     else:
         data_gen = [attribute[0][attribute_name] for attribute in GENERATED_FLAT_DICT]
         data_real = [attribute[0][attribute_name] for attribute in REAL_FLAT_DICT]
@@ -216,7 +219,7 @@ def calculate_lightbulb_score(attribute_value,
         if attribute_name in LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL:
             real_kde, gen_kde = LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL[attribute_name]
         else:
-            if attribute_name in GENERATED_PARTIAL_FLAT_DICT[0][0]:
+            if is_attribute_available_in_partial_attributes(attribute_name):
                 gen_values = [attribute[0][attribute_name] for attribute in GENERATED_PARTIAL_FLAT_DICT]
                 real_values = [attribute[0][attribute_name] for attribute in REAL_PARTIAL_FLAT_DICT]
 
@@ -240,3 +243,6 @@ def calculate_lightbulb_score(attribute_value,
         return float(np.clip(llm_score,  0, 1))
 
     raise ValueError(f"Unknown category: {category}")
+
+def is_attribute_available_in_partial_attributes(attribute_name):
+    return attribute_name in GENERATED_PARTIAL_FLAT_DICT[0][0]

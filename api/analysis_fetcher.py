@@ -19,7 +19,7 @@ from api.api_models.response import BackgroundTaskStatusResponse, AnalysisResult
     UserDocumentsWithAnalyses, DocumentLevelAnalysisAdditionalDetails, ChunkLevelAnalysisAdditionalDetails, \
     ChunkLevelSubanalysisAdditionalDetails, DocumentWithAnalysesAdditionalDetails, HistogramDataWithMetadata, \
     AllHistogramsDTO, DocumentPreprocessingFailedResponse
-from api.analyser import compare_2_hists, compute_histogram_data
+from api.analyser import compare_2_hists, compute_histogram_data, is_attribute_available_in_partial_attributes
 from api.security import verify_token
 from api.utils import _validate_analysis, _handle_analysis_status, calculate_lightbulb_scores
 
@@ -143,15 +143,21 @@ async def get_graph_summary(
     is_partial_attribute: Optional[bool] = Query(False),
     _: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID
 ):
-    histogram_data= await _get_graph_summary(
-        analysis_id=None,
-        attribute_name=attribute_name,
-        num_bins=num_bins,
-        min_value=min_value,
-        max_value=max_value,
-        existing_hash=existing_hash,
-        is_partial_attribute=is_partial_attribute
-    )
+    try:
+        histogram_data= await _get_graph_summary(
+            analysis_id=None,
+            attribute_name=attribute_name,
+            num_bins=num_bins,
+            min_value=min_value,
+            max_value=max_value,
+            existing_hash=existing_hash,
+            is_partial_attribute=is_partial_attribute
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No reference data for {attribute_name} found"
+        )
 
     return HistogramDataWithMetadata(
         histogram_data=histogram_data,
@@ -180,21 +186,21 @@ async def get_all_graph_summary(
             attribute_name=attribute_name,
             is_partial_data=False)
         )
-
-        partial_histogram_data = await _get_graph_summary(
-            analysis_id=None,
-            attribute_name=attribute_name,
-            num_bins=num_bins,
-            min_value=None,
-            max_value=None,
-            existing_hash=None,
-            is_partial_attribute=True
-        )
-        histograms_data_with_metadata.append(HistogramDataWithMetadata(
-            histogram_data=partial_histogram_data,
-            attribute_name=attribute_name,
-            is_partial_data=True)
-        )
+        if is_attribute_available_in_partial_attributes(attribute_name):
+            partial_histogram_data = await _get_graph_summary(
+                analysis_id=None,
+                attribute_name=attribute_name,
+                num_bins=num_bins,
+                min_value=None,
+                max_value=None,
+                existing_hash=None,
+                is_partial_attribute=True
+            )
+            histograms_data_with_metadata.append(HistogramDataWithMetadata(
+                histogram_data=partial_histogram_data,
+                attribute_name=attribute_name,
+                is_partial_data=True)
+            )
 
     all_histograms_dto = AllHistogramsDTO(
         histograms_data_with_metadata=histograms_data_with_metadata,
