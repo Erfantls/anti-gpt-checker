@@ -216,12 +216,15 @@ def calculate_lightbulb_score(attribute_value,
         if attribute_name in LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL:
             real_kde, gen_kde = LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL[attribute_name]
         else:
-            gen_values = [attribute[0][attribute_name] for attribute in GENERATED_PARTIAL_FLAT_DICT]
-            real_values = [attribute[0][attribute_name] for attribute in REAL_PARTIAL_FLAT_DICT]
+            if attribute_name in GENERATED_PARTIAL_FLAT_DICT[0][0]:
+                gen_values = [attribute[0][attribute_name] for attribute in GENERATED_PARTIAL_FLAT_DICT]
+                real_values = [attribute[0][attribute_name] for attribute in REAL_PARTIAL_FLAT_DICT]
 
-            # KDEs give smooth non-parametric estimates; 1-liner to swap in any other model.
-            real_kde = gaussian_kde(real_values, bw_method='scott')
-            gen_kde  = gaussian_kde(gen_values,  bw_method='scott')
+                # KDEs give smooth non-parametric estimates; 1-liner to swap in any other model.
+                real_kde = gaussian_kde(real_values, bw_method='scott')
+                gen_kde  = gaussian_kde(gen_values,  bw_method='scott')
+            else:
+                raise ValueError(f"Attribute named {attribute_name} not available for partial analysis")
 
     raw = _relative_density(attribute_value, real_kde, gen_kde)  # [-1,1]
 

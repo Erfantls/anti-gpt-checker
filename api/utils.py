@@ -94,8 +94,11 @@ async def calculate_lightbulb_scores(attribute, attribute_names, is_chunk_attrib
             category = LightbulbScoreType.BIDIRECTIONAL
 
         attribute_value = attribute_dict[attribute_name]
-        lightbulb_score_value = calculate_lightbulb_score(attribute_value, attribute_name,
-                                                          category=category, is_chunk_attribute=is_chunk_attribute)
+        try:
+            lightbulb_score_value = calculate_lightbulb_score(attribute_value, attribute_name,
+                                                              category=category, is_chunk_attribute=is_chunk_attribute)
+        except ValueError:
+            continue
         lightbulb_score_data.append(LightbulbScoreData(
             attribute_name=attribute_name,
             type=LightbulbScoreType.BIDIRECTIONAL,
