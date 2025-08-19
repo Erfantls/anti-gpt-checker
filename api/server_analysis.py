@@ -3,11 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
-from api.analyser import load_reference_attributes, precompile_gaussian_kde
-
-from api.analysis_fetcher import router as analysis_fetcher_router
 from api.feature_extraction import router as feature_extraction_router, init_analysis_executor
-from api.db_calls import router as db_router
 from api.server_config import ANALYSIS_TASK_QUEUE
 
 from config import init_all_polish_models
