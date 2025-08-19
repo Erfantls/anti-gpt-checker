@@ -168,39 +168,42 @@ async def get_graph_summary(
 async def get_all_graph_summary(
     num_bins: int = Query(21, gt=1, le=100),
     existing_hash: Optional[str] = Query(None, alias="hash"),
+    is_partial_attribute: Optional[bool] = Query(False),
     _: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID
 ):
     histograms_data_with_metadata: List[HistogramDataWithMetadata] = []
     for attribute_name in API_MOST_IMPORTANT_ATTRIBUTES:
-        histogram_data = await _get_graph_summary(
-            analysis_id=None,
-            attribute_name=attribute_name,
-            num_bins=num_bins,
-            min_value=None,
-            max_value=None,
-            existing_hash=None,
-            is_partial_attribute=False
-        )
-        histograms_data_with_metadata.append(HistogramDataWithMetadata(
-            histogram_data = histogram_data,
-            attribute_name=attribute_name,
-            is_partial_data=False)
-        )
-        if is_attribute_available_in_partial_attributes(attribute_name):
-            partial_histogram_data = await _get_graph_summary(
+        if not is_partial_attribute:
+            histogram_data = await _get_graph_summary(
                 analysis_id=None,
                 attribute_name=attribute_name,
                 num_bins=num_bins,
                 min_value=None,
                 max_value=None,
                 existing_hash=None,
-                is_partial_attribute=True
+                is_partial_attribute=False
             )
             histograms_data_with_metadata.append(HistogramDataWithMetadata(
-                histogram_data=partial_histogram_data,
+                histogram_data = histogram_data,
                 attribute_name=attribute_name,
-                is_partial_data=True)
+                is_partial_data=False)
             )
+        else:
+            if is_attribute_available_in_partial_attributes(attribute_name):
+                partial_histogram_data = await _get_graph_summary(
+                    analysis_id=None,
+                    attribute_name=attribute_name,
+                    num_bins=num_bins,
+                    min_value=None,
+                    max_value=None,
+                    existing_hash=None,
+                    is_partial_attribute=True
+                )
+                histograms_data_with_metadata.append(HistogramDataWithMetadata(
+                    histogram_data=partial_histogram_data,
+                    attribute_name=attribute_name,
+                    is_partial_data=True)
+                )
 
     all_histograms_dto = AllHistogramsDTO(
         histograms_data_with_metadata=histograms_data_with_metadata,
