@@ -56,7 +56,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "api.server:app",       # points to this file and the FastAPI instance
+        "api.server_all_in_one:app",       # points to this file and the FastAPI instance
         host="0.0.0.0",
         port=8989,
         reload=True,      # auto reload during development
