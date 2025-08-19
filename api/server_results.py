@@ -25,24 +25,11 @@ async def lifespan(app: FastAPI):
     print("Precompilation of gaussian kde values completed successfully.")
     print("=========================================================")
 
-    print("Initializing feature extraction models...")
-    with suppress_stdout():
-        init_all_polish_models()
-    print("Feature extraction models initialized successfully.")
-    print("=========================================================")
-
-    print("Starting the analysis queue worker...")
-    ANALYSIS_TASK_QUEUE.start_worker()
-    init_analysis_executor()
-    print("Analysis queue worker started successfully.")
-    print("=========================================================")
-
     yield
 app = FastAPI(lifespan=lifespan)
 
 # add the routers
 app.include_router(analysis_fetcher_router, prefix="/results", tags=["Results"])
-app.include_router(feature_extraction_router, prefix="/analysis", tags=["Feature Extraction"])
 app.include_router(db_router, prefix="/db-operations", tags=["Database Operations"])
 
 app.add_middleware(
@@ -57,8 +44,8 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "api.server:app",       # points to this file and the FastAPI instance
+        "api.server_results:app",       # points to this file and the FastAPI instance
         host="0.0.0.0",
-        port=8989,
+        port=8990,
         reload=True,      # auto reload during development
     )
