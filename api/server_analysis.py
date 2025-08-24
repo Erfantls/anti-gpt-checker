@@ -43,6 +43,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "api.server_analysis:app",       # points to this file and the FastAPI instance
         host="0.0.0.0",
-        port=8989,
+        port=8990,
         reload=True,      # auto reload during development
     )
