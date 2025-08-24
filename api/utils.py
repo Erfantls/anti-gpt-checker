@@ -44,7 +44,7 @@ async def _validate_analysis(
 
 async def _handle_analysis_status(analysis: AnalysisInDB) -> BackgroundTaskStatusResponse:
     pos = None
-    if analysis.task_id is not None:
+    if ANALYSIS_TASK_QUEUE is not None and analysis.task_id is not None:
         pos = ANALYSIS_TASK_QUEUE.get_position(analysis.task_id)
         await dao_analysis.update_one({'analysis_id': analysis.task_id}, {'$set': {'queue_position': pos}})
 

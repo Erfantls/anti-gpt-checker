@@ -86,4 +86,7 @@ API_DEBUG = (os.getenv("API_DEBUG", "False").lower() in ["1", "true", "t", "yes"
 API_DEBUG_USER_ID = os.getenv("API_DEBUG_USER_ID", "0000000000000000000000000")
 
 API_MAX_CONCURRENT_TASKS = int(os.getenv("API_MAX_CONCURRENT_TASKS", "1"))
-ANALYSIS_TASK_QUEUE: AnalysisTaskQueue = AnalysisTaskQueue(API_MAX_CONCURRENT_TASKS)
+ANALYSIS_TASK_QUEUE: AnalysisTaskQueue | None = None
+def init_analysis_task_queue() -> None:
+    global ANALYSIS_TASK_QUEUE
+    ANALYSIS_TASK_QUEUE = AnalysisTaskQueue(API_MAX_CONCURRENT_TASKS)
