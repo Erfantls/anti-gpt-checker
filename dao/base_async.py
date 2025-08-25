@@ -49,8 +49,14 @@ class DAOBaseAsync:
         doc = await self.collection.find_one({"_id": _id})
         return self.model_in_db(**doc) if doc else None
 
-    async def find_one_by_query(self, query: dict) -> Optional[BaseModel]:
-        doc = await self.collection.find_one(query)
+    async def find_one_by_query(self, query: dict, projections: Optional[List[str]] = None, sort: Optional[List] = None) -> Optional[BaseModel]:
+        kwargs = {}
+        if sort is not None:
+            kwargs["sort"] = sort
+        if projections is not None:
+            projections_dict = {projection: 1 for projection in projections}
+            kwargs["projection"] = projections_dict
+        doc = await self.collection.find_one(query, **kwargs)
         return self.model_in_db(**doc) if doc else None
 
     async def find_one_by_query_raw(self, query: dict) -> Optional[dict]:
