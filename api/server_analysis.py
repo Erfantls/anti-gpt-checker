@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
 from api.feature_extraction import router as feature_extraction_router, init_analysis_executor
-from api.server_config import ANALYSIS_TASK_QUEUE
+from api.server_config import ANALYSIS_TASK_QUEUE, init_analysis_task_queue
 
 from config import init_all_polish_models
 from services.utils import suppress_stdout
@@ -18,6 +18,7 @@ async def lifespan(app: FastAPI):
     print("=========================================================")
 
     print("Starting the analysis queue worker...")
+    init_analysis_task_queue()
     ANALYSIS_TASK_QUEUE.start_worker()
     init_analysis_executor()
     print("Analysis queue worker started successfully.")
@@ -42,6 +43,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "api.server_analysis:app",       # points to this file and the FastAPI instance
         host="0.0.0.0",
-        port=8989,
+        port=8990,
         reload=True,      # auto reload during development
     )
