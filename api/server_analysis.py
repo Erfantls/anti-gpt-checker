@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
 from api.feature_extraction import router as feature_extraction_router, init_analysis_executor
-from api.server_config import ANALYSIS_TASK_QUEUE, init_analysis_task_queue
+from api.server_config import init_analysis_task_queue
 
 from config import init_all_polish_models
 from services.utils import suppress_stdout
@@ -19,6 +19,7 @@ async def lifespan(app: FastAPI):
 
     print("Starting the analysis queue worker...")
     init_analysis_task_queue()
+    from api.server_config import ANALYSIS_TASK_QUEUE
     ANALYSIS_TASK_QUEUE.start_worker()
     init_analysis_executor()
     print("Analysis queue worker started successfully.")

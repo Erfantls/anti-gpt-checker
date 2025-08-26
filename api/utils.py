@@ -8,8 +8,7 @@ from api.api_models.analysis import AnalysisInDB, AnalysisStatus
 from api.api_models.lightbulb_score import LightbulbScoreType, LightbulbScoreData
 from api.api_models.response import BackgroundTaskStatusResponse, BackgroundTaskFailedResponse, \
     BackgroundTaskRunningResponse, BackgroundTaskFinishedResponse, BackgroundTaskQueuedResponse
-from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_MONGODB_DB_NAME, API_LIGHTBULBS_SCORES_PARAMETERS, \
-    ANALYSIS_TASK_QUEUE
+from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_MONGODB_DB_NAME, API_LIGHTBULBS_SCORES_PARAMETERS
 from api.server_dao.analysis import DAOAsyncAnalysis
 from dao.attribute import DAOAsyncAttributePL
 from models.attribute import AttributePLInDB
@@ -44,6 +43,7 @@ async def _validate_analysis(
 
 async def _handle_analysis_status(analysis: AnalysisInDB) -> BackgroundTaskStatusResponse:
     pos = None
+    from api.server_config import ANALYSIS_TASK_QUEUE
     if ANALYSIS_TASK_QUEUE is not None and analysis.task_id is not None:
         pos = ANALYSIS_TASK_QUEUE.get_position(analysis.task_id)
         await dao_analysis.update_one({'analysis_id': analysis.task_id}, {'$set': {'queue_position': pos}})

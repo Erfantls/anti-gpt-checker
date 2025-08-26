@@ -10,14 +10,14 @@ from fastapi import BackgroundTasks, Depends, APIRouter, HTTPException, status
 from analysis.attribute_retriving import perform_full_analysis, perform_partial_analysis_independently
 from analysis.nlp_transformations import preprocess_text
 from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DOCUMENTS_COLLECTION_NAME, API_DEBUG, \
-    API_MONGODB_DB_NAME, API_DEBUG_USER_ID, ANALYSIS_TASK_QUEUE
+    API_MONGODB_DB_NAME, API_DEBUG_USER_ID
 from api.server_dao.analysis import DAOAsyncAnalysis, DAOAnalysis
 from api.server_dao.document import DAOAsyncDocument, DAODocument
 from api.api_models.analysis import Analysis, AnalysisType, AnalysisStatus, AnalysisInDB
 from api.api_models.document import DocumentInDB, Document, DocumentStatus
 from api.api_models.request import PreprocessedDocumentRequestData
 from api.security import verify_token
-from dao.attribute import DAOAttributePL, DAOAsyncAttributePL
+from dao.attribute import DAOAttributePL
 from models.attribute import AttributePL, AttributePLInDB
 from models.base_mongo_model import MongoObjectId
 
@@ -174,6 +174,7 @@ async def trigger_document_analysis(document_hash: str, background_tasks: Backgr
         await dao_async_analysis.insert_one(analysis)
 
     task_coro = _perform_analysis(current_analysis_id, document_hash, user_id, type_of_analysis, attributes_id)
+    from api.server_config import ANALYSIS_TASK_QUEUE
     task_id = await ANALYSIS_TASK_QUEUE.enqueue(task_coro)
     pos = ANALYSIS_TASK_QUEUE.get_position(task_id)
     await dao_async_analysis.update_one({'analysis_id': current_analysis_id}, {'$set': {'task_id': str(task_id), 'queue_position': pos}})
