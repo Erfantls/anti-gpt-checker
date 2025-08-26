@@ -1,15 +1,16 @@
 from datetime import timedelta, datetime
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 
 from fastapi import HTTPException
 
 from api.analyser import calculate_lightbulb_score
 from api.api_models.analysis import AnalysisInDB, AnalysisStatus
-from api.api_models.lightbulb_score import LightbulbScoreType, LightbulbScoreData
+from api.api_models.lightbulb_score import LightbulbScoreType, LightbulbScoreData, LightbulbScoresInDB
 from api.api_models.response import BackgroundTaskStatusResponse, BackgroundTaskFailedResponse, \
     BackgroundTaskRunningResponse, BackgroundTaskFinishedResponse, BackgroundTaskQueuedResponse
 from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_MONGODB_DB_NAME, API_LIGHTBULBS_SCORES_PARAMETERS
 from api.server_dao.analysis import DAOAsyncAnalysis
+from api.server_dao.lightbulb_score import DAOAsyncLightbulbScore
 from dao.attribute import DAOAsyncAttributePL
 from models.attribute import AttributePLInDB
 
@@ -81,7 +82,7 @@ async def _handle_analysis_status(analysis: AnalysisInDB) -> BackgroundTaskStatu
         raise Exception(f"Unknown analysis status: {analysis.status}")
 
 
-async def calculate_lightbulb_scores(attribute, attribute_names, is_chunk_attribute: bool = False) -> list[LightbulbScoreData]:
+def calculate_lightbulb_scores(attribute, attribute_names, is_chunk_attribute: bool = False) -> list[LightbulbScoreData]:
     attribute_dict = attribute.to_flat_dict_normalized()
     lightbulb_score_data = []
     for attribute_name in attribute_names:
@@ -109,3 +110,20 @@ async def calculate_lightbulb_scores(attribute, attribute_names, is_chunk_attrib
             feature_rank=API_LIGHTBULBS_SCORES_PARAMETERS[attribute_name].feature_rank
         ))
     return lightbulb_score_data
+
+dao_async_lightbulbs: DAOAsyncLightbulbScore = DAOAsyncLightbulbScore()
+async def get_precompiled_lightbulb_scores(attribute: AttributePLInDB, attribute_names, is_chunk_attribute: bool = False) -> Tuple[Optional[List[LightbulbScoreData]], List[str]]:
+    lightbulbs_in_db: Optional[LightbulbScoresInDB] = await dao_async_lightbulbs.find_one_by_query({'attribute_id':attribute.id, 'is_chunk_attribute':is_chunk_attribute})
+    if lightbulbs_in_db is None:
+        return None, attribute_names
+
+    else:
+        lightbulbs_to_return = []
+        attribute_names_left = []
+        for attribute_name in attribute_names:
+            if attribute_name in lightbulbs_in_db.lightbulb_scores_dict:
+                lightbulbs_to_return.append(lightbulbs_in_db.lightbulb_scores_dict[attribute_name])
+            else:
+                attribute_names_left.append(attribute_name)
+
+        return lightbulbs_to_return, attribute_names_left
