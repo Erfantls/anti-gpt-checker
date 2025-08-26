@@ -401,7 +401,9 @@ async def _get_document_with_analyses_overview(document_hash: str, user_id: str)
         for chunk_attributes in attribute.partial_attributes:
             identifier = chunk_attributes.index
             lightbulb_features, attributes_names_left = await get_precompiled_lightbulb_scores(chunk_attributes.attribute,
-                                                                                               API_MOST_IMPORTANT_ATTRIBUTES)
+                                                                                               API_MOST_IMPORTANT_ATTRIBUTES,
+                                                                                               is_chunk_attribute=True,
+                                                                                               attribute_id=newest_analyses.attributes_id)
             if len(attributes_names_left) > 0:
                 is_only_combination_features = True
                 for attribute_name in attributes_names_left:
