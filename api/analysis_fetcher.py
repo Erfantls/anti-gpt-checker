@@ -322,15 +322,17 @@ async def get_user_document_with_analyses_details(document_hash: str, user_id: s
 
 
 async def _get_document_with_analyses_overview(document_hash: str, user_id: str):
-    document: DocumentInDB = await dao_document.find_one_by_query({'document_hash': document_hash, 'owner_id': user_id})
+    document: DocumentInDB = await dao_document.find_one_by_query({'document_hash': document_hash, 'owner_id': user_id},
+                                                                  projections=['document_hash', 'document_status', 'document_name', 'created_at'])
     if not document:
         raise HTTPException(
             status_code=404,
             detail="Document with the specified hash does not exist"
         )
 
-    analyses: list[AnalysisInDB] = await dao_analysis.find_many_by_query({'document_hash': document.document_hash, 'type': AnalysisType.DOCUMENT_LEVEL, 'status': AnalysisStatus.FINISHED})
-    if len(analyses) == 0:
+    newest_analyses: Optional[AnalysisInDB] = await dao_analysis.find_one_by_query({'document_hash': document.document_hash, 'type': AnalysisType.DOCUMENT_LEVEL, 'status': AnalysisStatus.FINISHED},
+                                                                                   sort=[("start_time", -1)])
+    if newest_analyses is None:
         all_analyses: List[AnalysisInDB] = await dao_analysis.find_many_by_query({'document_hash': document.document_hash})
         highest_document_level_analysis_status = AnalysisStatus.NOT_REQUESTED
         highest_chunk_level_analysis_status = AnalysisStatus.NOT_REQUESTED
@@ -357,8 +359,6 @@ async def _get_document_with_analyses_overview(document_hash: str, user_id: str)
                 subanalyses=[]
             )
         )
-
-    newest_analyses: AnalysisInDB = sorted(analyses, key=lambda x: x.start_time, reverse=True)[0]
 
     attribute: AttributePLInDB = await dao_attribute.find_by_id(newest_analyses.attributes_id)
     if not attribute:
