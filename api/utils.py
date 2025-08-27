@@ -112,13 +112,17 @@ def calculate_lightbulb_scores(attribute, attribute_names, is_chunk_attribute: b
     return lightbulb_score_data
 
 dao_async_lightbulbs: DAOAsyncLightbulbScore = DAOAsyncLightbulbScore()
-async def get_precompiled_lightbulb_scores(attribute: AttributePLInDB, attribute_names, is_chunk_attribute: bool = False, attribute_id: Optional[str] = None) -> Tuple[Optional[List[LightbulbScoreData]], List[str]]:
+async def get_precompiled_lightbulb_scores(attribute: AttributePLInDB,
+                                           attribute_names,
+                                           is_chunk_attribute: bool = False,
+                                           attribute_id: Optional[str] = None,
+                                           identifier: Optional[int] = None) -> Tuple[Optional[List[LightbulbScoreData]], List[str]]:
     if not is_chunk_attribute:
         lightbulbs_in_db: Optional[LightbulbScoresInDB] = await dao_async_lightbulbs.find_one_by_query(
             {'attribute_id':attribute.id, 'is_chunk_attribute':is_chunk_attribute})
     else:
         lightbulbs_in_db: Optional[LightbulbScoresInDB] = await dao_async_lightbulbs.find_one_by_query(
-            {'attribute_id': attribute_id, 'is_chunk_attribute': is_chunk_attribute})
+            {'attribute_id': attribute_id, 'is_chunk_attribute': is_chunk_attribute, 'identifier': identifier})
     if lightbulbs_in_db is None:
         return None, attribute_names
 
