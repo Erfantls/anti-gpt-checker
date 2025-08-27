@@ -21,7 +21,8 @@ from api.api_models.response import BackgroundTaskStatusResponse, AnalysisResult
     AllHistogramsDTO, DocumentPreprocessingFailedResponse
 from api.analyser import compare_2_hists, compute_histogram_data, is_attribute_available_in_partial_attributes
 from api.security import verify_token
-from api.utils import _validate_analysis, _handle_analysis_status, calculate_lightbulb_scores
+from api.utils import _validate_analysis, _handle_analysis_status, calculate_lightbulb_scores, \
+    get_precompiled_lightbulb_scores
 
 from dao.attribute import DAOAsyncAttributePL
 from models.attribute import AttributePLInDB
@@ -104,7 +105,7 @@ async def lightbulb_score(analysis_id: str, request_data: LightbulbScoreRequestD
     else:
         return validation_result
     attribute_names = request_data.attribute_names
-    lightbulb_score_data = await calculate_lightbulb_scores(attribute, attribute_names)
+    lightbulb_score_data = calculate_lightbulb_scores(attribute, attribute_names)
 
     return LightbulbScoreResponse(
         lightbulb_scores=lightbulb_score_data
@@ -367,9 +368,19 @@ async def _get_document_with_analyses_overview(document_hash: str, user_id: str)
             detail="Attribute for the specified analysis does not exist"
         )
 
+    lightbulb_features, attributes_names_left = await get_precompiled_lightbulb_scores(attribute, API_MOST_IMPORTANT_ATTRIBUTES)
+    if len(attributes_names_left) > 0:
+        is_only_combination_features = True
+        for attribute_name in attributes_names_left:
+            if 'combination_features' not in attribute_name:
+                is_only_combination_features = False
+
+        if not is_only_combination_features:
+            lightbulb_features_left = calculate_lightbulb_scores(attribute, attributes_names_left)
+            lightbulb_features += lightbulb_features_left
     document_level_analysis = DocumentLevelAnalysis(
         status=AnalysisStatus.FINISHED, # it has to be finished as we are fetching only finished analyses
-        lightbulb_features=await calculate_lightbulb_scores(attribute, API_MOST_IMPORTANT_ATTRIBUTES)
+        lightbulb_features= lightbulb_features
     )
 
     chunk_analyses: list[AnalysisInDB] = await dao_analysis.find_many_by_query({'document_hash': document.document_hash,
@@ -389,10 +400,24 @@ async def _get_document_with_analyses_overview(document_hash: str, user_id: str)
         chunk_level_subanalyses: list[ChunkLevelSubanalysis] = []
         for chunk_attributes in attribute.partial_attributes:
             identifier = chunk_attributes.index
-            lightbulb_scores = await calculate_lightbulb_scores(chunk_attributes.attribute, API_MOST_IMPORTANT_ATTRIBUTES)
+            lightbulb_features, attributes_names_left = await get_precompiled_lightbulb_scores(chunk_attributes.attribute,
+                                                                                               API_MOST_IMPORTANT_ATTRIBUTES,
+                                                                                               is_chunk_attribute=True,
+                                                                                               attribute_id=newest_analyses.attributes_id,
+                                                                                               identifier=identifier)
+            if len(attributes_names_left) > 0:
+                is_only_combination_features = True
+                for attribute_name in attributes_names_left:
+                    if 'combination_features' not in attribute_name:
+                        is_only_combination_features = False
+
+                if not is_only_combination_features:
+                    lightbulb_features_left = calculate_lightbulb_scores(attribute, attributes_names_left)
+                    lightbulb_features += lightbulb_features_left
+
             chunk_level_subanalyses.append(ChunkLevelSubanalysis(
                 identifier=identifier,
-                lightbulb_features=lightbulb_scores
+                lightbulb_features=lightbulb_features
             ))
         chunk_level_analysis = ChunkLevelAnalysis(
             status=AnalysisStatus.FINISHED,

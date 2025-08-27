@@ -9,14 +9,17 @@ from fastapi import BackgroundTasks, Depends, APIRouter, HTTPException, status
 
 from analysis.attribute_retriving import perform_full_analysis, perform_partial_analysis_independently
 from analysis.nlp_transformations import preprocess_text
+from api.api_models.lightbulb_score import LightbulbScores
 from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DOCUMENTS_COLLECTION_NAME, API_DEBUG, \
-    API_MONGODB_DB_NAME, API_DEBUG_USER_ID
+    API_MONGODB_DB_NAME, API_DEBUG_USER_ID, API_MOST_IMPORTANT_ATTRIBUTES
 from api.server_dao.analysis import DAOAsyncAnalysis, DAOAnalysis
 from api.server_dao.document import DAOAsyncDocument, DAODocument
 from api.api_models.analysis import Analysis, AnalysisType, AnalysisStatus, AnalysisInDB
 from api.api_models.document import DocumentInDB, Document, DocumentStatus
 from api.api_models.request import PreprocessedDocumentRequestData
 from api.security import verify_token
+from api.server_dao.lightbulb_score import DAOLightbulbScore
+from api.utils import calculate_lightbulb_scores
 from dao.attribute import DAOAttributePL
 from models.attribute import AttributePL, AttributePLInDB
 from models.base_mongo_model import MongoObjectId
@@ -188,6 +191,7 @@ dao_analysis: DAOAnalysis = DAOAnalysis()
 dao_document: DAODocument = DAODocument()
 dao_attribute: DAOAttributePL = DAOAttributePL(collection_name=API_ATTRIBUTES_COLLECTION_NAME,
                                                db_name=API_MONGODB_DB_NAME)
+dao_lightbulb: DAOLightbulbScore = DAOLightbulbScore()
 
 async def _perform_analysis(*args, **kwargs):
     loop = asyncio.get_running_loop()
@@ -215,6 +219,12 @@ def _blocking_analysis(analysis_id: str, document_hash, user_id: str, type_of_an
             dao_analysis.update_one({'analysis_id': analysis_id},
                                     {'$set': {'status': AnalysisStatus.FINISHED, "attributes_id": attributes_id,
                                                      'task_id': None, 'queue_position': None}})
+
+            lightbulb_scores = calculate_lightbulb_scores(attribute_to_insert, API_MOST_IMPORTANT_ATTRIBUTES)
+            lightbulb_scores_model = LightbulbScores(attribute_id=attributes_id,
+                                                     lightbulb_scores_dict={lightbulb.attribute_name: lightbulb for
+                                                                            lightbulb in lightbulb_scores})
+            dao_lightbulb.insert_one(lightbulb_scores_model)
         elif type_of_analysis == AnalysisType.CHUNK_LEVEL:
             assert document_level_attributes_id is not None, "Document level attributes ID must be provided for chunk level analysis"
             document_level_attribute_in_db: AttributePLInDB = dao_attribute.find_by_id(document_level_attributes_id)
@@ -225,6 +235,22 @@ def _blocking_analysis(analysis_id: str, document_hash, user_id: str, type_of_an
             dao_analysis.update_one({'analysis_id': analysis_id},
                                     {'$set': {'status': AnalysisStatus.FINISHED, "attributes_id": document_level_attributes_id,
                                                      'task_id': None, 'queue_position': None}})
+
+            attribute_after_update: AttributePLInDB = dao_attribute.find_by_id(document_level_attributes_id)
+            lightbulb_combination_features_scores = calculate_lightbulb_scores(attribute_after_update, [attribute for attribute in API_MOST_IMPORTANT_ATTRIBUTES if 'combination_features' in attribute])
+            dao_lightbulb.update_one({'analysis_id': analysis_id, 'is_chunk_attribute': False},
+                                     {'$set': {f"lightbulb_scores_dict.{combination_feature_score.attribute_name}": combination_feature_score for combination_feature_score in lightbulb_combination_features_scores}}
+                                     )
+
+            for chunk_attributes in partial_attributes:
+                lightbulb_scores_partial = calculate_lightbulb_scores(chunk_attributes.attribute, API_MOST_IMPORTANT_ATTRIBUTES)
+                lightbulb_scores_model_partial = LightbulbScores(attribute_id=document_level_attributes_id,
+                                                         is_chunk_attribute=True,
+                                                         identifier=chunk_attributes.index,
+                                                         lightbulb_scores_dict={lightbulb.attribute_name: lightbulb for
+                                                                                lightbulb in lightbulb_scores_partial})
+                dao_lightbulb.insert_one(lightbulb_scores_model_partial)
+
 
 
     except Exception as e:

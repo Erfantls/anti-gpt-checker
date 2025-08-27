@@ -1,7 +1,10 @@
 from enum import Enum
-from typing import Optional
+from typing import Optional, Dict
 
 from pydantic import BaseModel
+
+from models.base_mongo_model import MongoDBModel, MongoObjectId
+
 
 class LightbulbScoreType(str, Enum):
     BIDIRECTIONAL = "bidirectional" # score [-1,1]
@@ -18,4 +21,13 @@ class LightbulbScoreConfig(BaseModel):
 class LightbulbScoreData(LightbulbScoreConfig):
     score: float
     raw_score: float
+
+class LightbulbScores(BaseModel):
+    attribute_id: MongoObjectId
+    is_chunk_attribute: bool = False
+    identifier: Optional[int] = None
+    lightbulb_scores_dict: Dict[str, LightbulbScoreData]
+
+class LightbulbScoresInDB(MongoDBModel, LightbulbScores):
+    pass
 

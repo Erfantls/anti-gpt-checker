@@ -51,7 +51,7 @@ async def get_analysed_documents_of_user(user_id: str = Depends(verify_token) if
             if not attribute:
                 continue
 
-            lightbulb_scores = await calculate_lightbulb_scores(attribute, API_MOST_IMPORTANT_ATTRIBUTES)
+            lightbulb_scores = calculate_lightbulb_scores(attribute, API_MOST_IMPORTANT_ATTRIBUTES)
             analyses_with_lightbulbs.append(AnalysisWithLightbulbs(
                 analysis=analysis,
                 attribute_in_db=attribute,
