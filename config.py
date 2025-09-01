@@ -3,7 +3,7 @@ import os
 import nltk
 import spacy
 
-import stylo_metrix as sm
+from analysis.custom_stylometrix import CustomStyloMetrix
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import MongoClient
@@ -137,16 +137,16 @@ def load_dictionaries():
                 if word:
                     WORD_SET.add(word)
 
-STYLOMETRIX_PL_MODEL = None
-STYLOMETRIX_EN_MODEL = None
+STYLOMETRIX_PL_MODEL: CustomStyloMetrix | None = None
+STYLOMETRIX_EN_MODEL: CustomStyloMetrix | None = None
 
 def init_polish_stylometrix_model() -> None:
     global STYLOMETRIX_PL_MODEL
-    STYLOMETRIX_PL_MODEL = sm.StyloMetrix('pl')
+    STYLOMETRIX_PL_MODEL = CustomStyloMetrix('pl')
 
 def init_english_stylometrix_model() -> None:
     global STYLOMETRIX_EN_MODEL
-    STYLOMETRIX_EN_MODEL = sm.StyloMetrix('en')
+    STYLOMETRIX_EN_MODEL = CustomStyloMetrix('en')
 
 def init_all_polish_models() -> None:
     init_polish_perplexity_model()
