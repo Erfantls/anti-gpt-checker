@@ -121,7 +121,7 @@ def count_punctuation(text: str) -> float:
     return punctuation_count / len(text)
 
 
-def stylo_metrix_analysis(texts: List[str], language_code: str) -> list[
+def old_metrix_analysis(texts: List[str], language_code: str) -> list[
     AllStyloMetrixFeaturesPL | AllStyloMetrixFeaturesEN]:
     from config import STYLOMETRIX_PL_MODEL, STYLOMETRIX_EN_MODEL
 
@@ -129,7 +129,7 @@ def stylo_metrix_analysis(texts: List[str], language_code: str) -> list[
     tokens = stylo.nlp(texts[0])
     if len(tokens) < MAX_STYLOMETRIX_LENGTH:
         metrics = stylo.transform(texts[0])
-        converted_metrics = stylo_metrix_output_to_model(metrics, language_code)
+        converted_metrics = old_stylo_metrix_output_to_model(metrics, language_code)
         return converted_metrics
     else:
         converted_metrics = []
@@ -143,7 +143,7 @@ def stylo_metrix_analysis(texts: List[str], language_code: str) -> list[
 
         averaged_metrics["text"] = texts[0]
         df = pd.DataFrame(averaged_metrics, index=[0])
-        converted_metrics = stylo_metrix_output_to_model(df, language_code)
+        converted_metrics = old_stylo_metrix_output_to_model(df, language_code)
         return converted_metrics
 
 
@@ -156,8 +156,7 @@ def stylometrix_analysis_slice_of_text(text: str, language_code: str, already_an
         stylometrix_analysis_slice_of_text(text[:len(text) // 2], language_code, already_analysed_list, stylo)
         stylometrix_analysis_slice_of_text(text[len(text) // 2:], language_code, already_analysed_list, stylo)
 
-
-def stylo_metrix_output_to_model(metrics_df: DataFrame, language_code: str) -> list[
+def old_stylo_metrix_output_to_model(metrics_df: DataFrame, language_code: str) -> list[
     AllStyloMetrixFeaturesPL | AllStyloMetrixFeaturesEN]:
     model_instances = []
     for index, row in metrics_df.iterrows():
@@ -171,6 +170,70 @@ def stylo_metrix_output_to_model(metrics_df: DataFrame, language_code: str) -> l
         model_instances.append(model_instance)
 
     return model_instances
+
+
+def binary_split_text(text, stylo, max_tokens):
+    doc = stylo.nlp(text)
+    total_tokens = len(doc)
+
+    chunks = [text]
+    token_estimates = [total_tokens]
+
+    i = 0
+    while i < len(chunks):
+        if token_estimates[i] <= max_tokens:
+            i += 1
+            continue
+
+        chunk = chunks.pop(i)
+        tokens = token_estimates.pop(i)
+        mid = len(chunk) // 2
+
+        left = chunk[:mid]
+        right = chunk[mid:]
+
+        left_tokens = max(1, int(tokens * len(left) / len(chunk)))
+        right_tokens = tokens - left_tokens
+
+        chunks.insert(i, right)
+        token_estimates.insert(i, right_tokens)
+        chunks.insert(i, left)
+        token_estimates.insert(i, left_tokens)
+
+    return chunks
+
+def stylo_metrix_analysis(text: str, language_code: str) -> AllStyloMetrixFeaturesPL | AllStyloMetrixFeaturesEN:
+    from config import STYLOMETRIX_PL_MODEL, STYLOMETRIX_EN_MODEL
+
+    stylo = STYLOMETRIX_PL_MODEL if language_code == "pl" else STYLOMETRIX_EN_MODEL
+
+    text_chunks = binary_split_text(text, stylo, MAX_STYLOMETRIX_LENGTH)
+    calculated_metrics = []
+
+    for chunk in text_chunks:
+        doc = stylo.nlp(chunk)
+        metrics = stylo.transform(doc, chunk)
+        calculated_metrics.append(metrics)
+
+    averaged_metrics = {}
+    for metric in calculated_metrics[0].to_dict().keys():
+        if metric == "text":
+            continue
+        metric_values = [metric_dict.to_dict()[metric][0] for metric_dict in calculated_metrics]
+        averaged_metrics[metric] = sum(metric_values) / len(metric_values)
+
+    averaged_metrics["text"] = text
+
+    calculated_metrics = stylo_metrix_output_to_model(averaged_metrics, language_code)
+    return calculated_metrics
+
+def stylo_metrix_output_to_model(metrics_dict: dict, language_code: str) -> AllStyloMetrixFeaturesPL | AllStyloMetrixFeaturesEN:
+    if language_code == "pl":
+        return AllStyloMetrixFeaturesPL(with_prepare=True, **metrics_dict)
+    elif language_code == "en":
+        return AllStyloMetrixFeaturesEN(with_prepare=True, **metrics_dict)
+    else:
+        raise ValueError(f"Language {language_code} is not supported")
 
 
 def calculate_perplexity_old(text: str, language_word_probabilities: Dict[str, float]) -> float:
@@ -748,7 +811,7 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
     if skip_stylometrix_calc:
         stylometrix_metrics = None
     else:
-        stylometrix_metrics = stylo_metrix_analysis([text], lang_code)[0]
+        stylometrix_metrics = stylo_metrix_analysis(text, lang_code)
 
     if skip_partial_attributes:
         partial_attributes = None
