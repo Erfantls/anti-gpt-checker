@@ -19,7 +19,8 @@ class DAOAsyncDocument(DAOBaseAsync):
         self,
         query: dict,
         start_index: int = 0,
-        limit: Optional[int] = None
+        limit: Optional[int] = None,
+        sort: Optional[dict] = None
     ) -> List[str]:
         """
         Find documents matching the query, return only a single field,
@@ -38,7 +39,14 @@ class DAOAsyncDocument(DAOBaseAsync):
         cursor = self.collection.find(
             filter=query,
             projection={field_name: 1, "_id": 0}
-        ).skip(start_index)
+        )
+
+
+        if sort is not None:
+            sort_query = [(s, sort[s]) for s in sort]
+            cursor = cursor.sort(sort_query)
+
+        cursor = cursor.skip(start_index)
 
         if limit is not None:
             cursor = cursor.limit(limit)

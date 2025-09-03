@@ -4,6 +4,7 @@ from typing import Optional, Tuple, List
 
 from fastapi import Depends, APIRouter, HTTPException, status, Query
 from fastapi.responses import FileResponse, JSONResponse
+from pymongo import DESCENDING
 from starlette import status
 
 from api.api_models.document import DocumentInDB, DocumentStatus
@@ -264,7 +265,7 @@ async def get_document_with_analyses_overview(document_hash: str, user_id: str =
             response_model=UserDocumentsWithAnalyses,
             status_code=status.HTTP_200_OK)
 async def get_documents_with_analyses_overview(start_index: int = 0, limit: Optional[int] = None, user_id: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
-    document_hashes: List[str] = await dao_document.find_document_hash_by_query_paginated({'owner_id': user_id}, start_index, limit)
+    document_hashes: List[str] = await dao_document.find_document_hash_by_query_paginated({'owner_id': user_id}, start_index, limit, sort={'updated_at': DESCENDING})
     documents_with_analyses: List[DocumentDataWithAnalyses] = []
     for document_hash in document_hashes:
         try:
