@@ -14,7 +14,6 @@ class LightbulbScoreType(str, Enum):
 class LightbulbScoreConfig(BaseModel):
     attribute_name: str
     type: LightbulbScoreType
-    type_direction: Optional[int] = None
     max_value: Optional[float]
     min_value: Optional[float]
     feature_rank: Optional[int] = None
