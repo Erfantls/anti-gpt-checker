@@ -17,8 +17,6 @@ GENERATED_FLAT_DICT = None
 REAL_FLAT_DICT = None
 GENERATED_PARTIAL_FLAT_DICT = None
 REAL_PARTIAL_FLAT_DICT = None
-LIGHTBULB_GAUSSIAN_KDE_DATA = None
-LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL = None
 
 def load_reference_attributes() -> None:
     global GENERATED_FLAT_DICT, REAL_FLAT_DICT, GENERATED_PARTIAL_FLAT_DICT, REAL_PARTIAL_FLAT_DICT
@@ -45,33 +43,6 @@ def load_reference_attributes() -> None:
 
 
     print(f"LOADED {len(GENERATED_PARTIAL_FLAT_DICT) + len(REAL_PARTIAL_FLAT_DICT)} paragraph attributes from reference collection")
-
-def precompile_gaussian_kde() -> None:
-    """
-    Precompiles the Gaussian KDE for the generated and real attributes.
-    This is useful to speed up the lightbulb score calculations.
-    """
-    assert GENERATED_FLAT_DICT is not None
-    assert REAL_FLAT_DICT is not None
-    assert GENERATED_PARTIAL_FLAT_DICT is not None
-    assert REAL_PARTIAL_FLAT_DICT is not None
-
-    global LIGHTBULB_GAUSSIAN_KDE_DATA, LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL
-    LIGHTBULB_GAUSSIAN_KDE_DATA = {}
-    LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL = {}
-    for attribute_name in API_MOST_IMPORTANT_ATTRIBUTES:
-        gen_values = [attribute[0][attribute_name] for attribute in GENERATED_FLAT_DICT]
-        real_values = [attribute[0][attribute_name] for attribute in REAL_FLAT_DICT]
-        real_kde = gaussian_kde(real_values, bw_method='scott')
-        gen_kde = gaussian_kde(gen_values, bw_method='scott')
-        LIGHTBULB_GAUSSIAN_KDE_DATA[attribute_name] = (real_kde, gen_kde)
-
-        if is_attribute_available_in_partial_attributes(attribute_name):
-            gen_partial_values = [attribute[0][attribute_name] for attribute in GENERATED_PARTIAL_FLAT_DICT]
-            real_partial_values = [attribute[0][attribute_name] for attribute in REAL_PARTIAL_FLAT_DICT]
-            real_kde = gaussian_kde(real_partial_values, bw_method='scott')
-            gen_kde = gaussian_kde(gen_partial_values, bw_method='scott')
-            LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL[attribute_name] = (real_kde, gen_kde)
 
 def plot_two_hists(data1, data2, title, metric_name="Metric", num_bin=21, min_value=0, max_value=5, top=0.5,
                    additional_value=None, file_name=""):
