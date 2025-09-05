@@ -176,20 +176,25 @@ def boost_with_cosine(score, boost=1.7, power=0.7):
     m = 1.0 + (boost - 1.0) * shaped
     return float(np.clip(s * m, -1.0, 1.0))
 
-def _relative_percentile_score(value: float,real_values: np.ndarray,gen_values:  np.ndarray):
+def _relative_percentile_score(value: float,real_values: np.ndarray,gen_values: np.ndarray, category: LightbulbScoreType):
 
     real_percentile = percentileofscore(real_values, value, kind="weak")/100.0
     real_median = np.median(real_values)
     gen_percentile = percentileofscore(gen_values, value, kind="weak")/100.0
     gen_median = np.median(gen_values)
 
-    real_score = real_percentile - 0.5
-    gen_score = gen_percentile - 0.5
-    result = real_score + gen_score
-    if real_median < gen_median:
-        result = -result
+    if category == LightbulbScoreType.HUMAN_WRITTEN:
+        return boost_with_cosine(real_percentile)
+    elif category == LightbulbScoreType.LLM_GENERATED:
+        return boost_with_cosine(gen_percentile-1)
+    else:
+        real_score = real_percentile - 0.5
+        gen_score = gen_percentile - 0.5
+        result = real_score + gen_score
+        if real_median < gen_median:
+            result = -result
 
-    return boost_with_cosine(result)
+        return boost_with_cosine(result)
 
 
 def calculate_lightbulb_score(attribute_value,
@@ -213,7 +218,7 @@ def calculate_lightbulb_score(attribute_value,
         else:
             raise ValueError(f"Attribute named {attribute_name} not available for partial analysis")
 
-    raw = _relative_percentile_score(attribute_value,real_values,gen_values)
+    raw = _relative_percentile_score(attribute_value,real_values,gen_values, category)
 
     if category == LightbulbScoreType.BIDIRECTIONAL:
         return float(np.clip(raw, -1, 1))
