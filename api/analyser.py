@@ -200,8 +200,8 @@ def calculate_lightbulb_score(attribute_value,
     Returns a scalar whose range depends on *category*.
 
     BIDIRECTIONAL : [-1, 1]   (+ → human-like, − → LLM-like)
-    HUMAN_WRITTEN : [-1, 0]   (close to -1 → confidently human)
-    LLM_GENERATED : [ 0, 1]   (close to  1 → confidently LLM)
+    HUMAN_WRITTEN : [0, 1]   (close to 1 → confidently human)
+    LLM_GENERATED : [ -1, 0]   (close to  -1 → confidently LLM)
     """
     if not is_chunk_attribute:
         gen_values = [attribute[0][attribute_name] for attribute in GENERATED_FLAT_DICT]
@@ -219,10 +219,10 @@ def calculate_lightbulb_score(attribute_value,
         return float(np.clip(raw, -1, 1))
 
     if category == LightbulbScoreType.LLM_GENERATED:
-        return float(np.clip(raw, 0, 1))
+        return float(np.clip(raw, -1, 0))
 
     if category == LightbulbScoreType.HUMAN_WRITTEN:
-        return float(np.clip(raw,  -1, 0))
+        return float(np.clip(raw,  0, 1))
 
     raise ValueError(f"Unknown category: {category}")
 
