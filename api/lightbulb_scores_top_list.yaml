@@ -15,3 +15,7 @@
 - stylometrix_metrics.lexical.L_SYL_G4
 - stylometrix_metrics.inflection.IN_N_NMP
 - standard_deviation_sentence_char_length
+- stylometrix_metrics.inflection.IN_V_IMPERS_PERF
+- punctuation_density
+- stylometrix_metrics.inflection.IN_V_IMPERS
+- stylometrix_metrics.grammatical_forms.G_PART
