@@ -34,7 +34,8 @@
   min_value: 0.0
   feature_rank: 7
 - attribute_name: stylometrix_metrics.syntactic.SY_S_NOM
-  type: bidirectional
+  type: human_written
+  type_direction: 1
   max_value: 1.0
   min_value: 0.0
   feature_rank: 8
@@ -69,7 +70,8 @@
   min_value: 0.0
   feature_rank: 14
 - attribute_name: number_of_errors
-  type: bidirectional
+  type: human_written
+  type_direction: 1
   max_value: 0.12067492524562153
   min_value: 0.0
   feature_rank: 15
@@ -314,7 +316,8 @@
   min_value: 0.0
   feature_rank: 63
 - attribute_name: perplexity_base_normalized
-  type: bidirectional
+  type: llm_generated
+  type_direction: -1
   max_value: 4.20897102355957
   min_value: 0.0022715784545637606
   feature_rank: 64
@@ -379,7 +382,8 @@
   min_value: 0
   feature_rank: 76
 - attribute_name: stylometrix_metrics.grammatical_forms.G_NUM
-  type: bidirectional
+  type: human_written
+  type_direction: 1
   max_value: 0.40822784810126583
   min_value: 0.0
   feature_rank: 77
@@ -509,7 +513,8 @@
   min_value: 0.0
   feature_rank: 102
 - attribute_name: text_errors_by_category.PUNCTUATION
-  type: bidirectional
+  type: human_written
+  type_direction: 1
   max_value: 0.013394129381590196
   min_value: 0.0
   feature_rank: 103

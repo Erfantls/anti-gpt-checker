@@ -1,7 +1,7 @@
 from typing import List
 
 import numpy as np
-from scipy.stats import gaussian_kde
+from scipy.stats import gaussian_kde, percentileofscore
 from matplotlib import pyplot as plt
 
 from api.api_models.response import HistogramData, HistogramDataDTO
@@ -17,8 +17,6 @@ GENERATED_FLAT_DICT = None
 REAL_FLAT_DICT = None
 GENERATED_PARTIAL_FLAT_DICT = None
 REAL_PARTIAL_FLAT_DICT = None
-LIGHTBULB_GAUSSIAN_KDE_DATA = None
-LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL = None
 
 def load_reference_attributes() -> None:
     global GENERATED_FLAT_DICT, REAL_FLAT_DICT, GENERATED_PARTIAL_FLAT_DICT, REAL_PARTIAL_FLAT_DICT
@@ -45,33 +43,6 @@ def load_reference_attributes() -> None:
 
 
     print(f"LOADED {len(GENERATED_PARTIAL_FLAT_DICT) + len(REAL_PARTIAL_FLAT_DICT)} paragraph attributes from reference collection")
-
-def precompile_gaussian_kde() -> None:
-    """
-    Precompiles the Gaussian KDE for the generated and real attributes.
-    This is useful to speed up the lightbulb score calculations.
-    """
-    assert GENERATED_FLAT_DICT is not None
-    assert REAL_FLAT_DICT is not None
-    assert GENERATED_PARTIAL_FLAT_DICT is not None
-    assert REAL_PARTIAL_FLAT_DICT is not None
-
-    global LIGHTBULB_GAUSSIAN_KDE_DATA, LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL
-    LIGHTBULB_GAUSSIAN_KDE_DATA = {}
-    LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL = {}
-    for attribute_name in API_MOST_IMPORTANT_ATTRIBUTES:
-        gen_values = [attribute[0][attribute_name] for attribute in GENERATED_FLAT_DICT]
-        real_values = [attribute[0][attribute_name] for attribute in REAL_FLAT_DICT]
-        real_kde = gaussian_kde(real_values, bw_method='scott')
-        gen_kde = gaussian_kde(gen_values, bw_method='scott')
-        LIGHTBULB_GAUSSIAN_KDE_DATA[attribute_name] = (real_kde, gen_kde)
-
-        if is_attribute_available_in_partial_attributes(attribute_name):
-            gen_partial_values = [attribute[0][attribute_name] for attribute in GENERATED_PARTIAL_FLAT_DICT]
-            real_partial_values = [attribute[0][attribute_name] for attribute in REAL_PARTIAL_FLAT_DICT]
-            real_kde = gaussian_kde(real_partial_values, bw_method='scott')
-            gen_kde = gaussian_kde(gen_partial_values, bw_method='scott')
-            LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL[attribute_name] = (real_kde, gen_kde)
 
 def plot_two_hists(data1, data2, title, metric_name="Metric", num_bin=21, min_value=0, max_value=5, top=0.5,
                    additional_value=None, file_name=""):
@@ -193,6 +164,40 @@ def _relative_density(value: float,
 
     return (p_real - p_gen) / (p_real + p_gen)   # ∈ (-1,1)
 
+def boost_with_cosine(score, boost=1.7, power=0.7):
+    """
+    Multiply by a smooth cosine bump centered at 0.
+    - boost sets multiplier at 0.
+    - power < 1 makes growth faster near 0.
+    """
+    s = float(np.clip(score, -1.0, 1.0))
+    base = 0.5 * (1.0 + np.cos(np.pi * s))  # 1 at 0, 0 at ±1
+    shaped = base ** power                  # adjust growth
+    m = 1.0 + (boost - 1.0) * shaped
+    return float(np.clip(s * m, -1.0, 1.0))
+
+def _relative_percentile_score(value: float,real_values: np.ndarray,gen_values: np.ndarray, category: LightbulbScoreType):
+
+    real_percentile = percentileofscore(real_values, value, kind="weak")/100.0
+    real_median = np.median(real_values)
+    gen_percentile = percentileofscore(gen_values, value, kind="weak")/100.0
+    gen_median = np.median(gen_values)
+
+    if category == LightbulbScoreType.HUMAN_WRITTEN:
+        real_score = ((-abs(real_percentile - 0.5))*2)+1
+        return boost_with_cosine(real_score)
+    elif category == LightbulbScoreType.LLM_GENERATED:
+        gen_score = (abs(gen_percentile - 0.5)-0.5)*2
+        return boost_with_cosine(gen_score)
+    else:
+        real_score = real_percentile - 0.5
+        gen_score = gen_percentile - 0.5
+        result = real_score + gen_score
+        if real_median < gen_median:
+            result = -result
+
+        return boost_with_cosine(result)
+
 
 def calculate_lightbulb_score(attribute_value,
                               attribute_name,
@@ -202,45 +207,29 @@ def calculate_lightbulb_score(attribute_value,
     Returns a scalar whose range depends on *category*.
 
     BIDIRECTIONAL : [-1, 1]   (+ → human-like, − → LLM-like)
-    HUMAN_WRITTEN : [-1, 0]   (close to -1 → confidently human)
-    LLM_GENERATED : [ 0, 1]   (close to  1 → confidently LLM)
+    HUMAN_WRITTEN : [0, 1]   (close to 1 → confidently human)
+    LLM_GENERATED : [ -1, 0]   (close to  -1 → confidently LLM)
     """
-    if is_chunk_attribute:
-        if attribute_name in LIGHTBULB_GAUSSIAN_KDE_DATA:
-            real_kde, gen_kde = LIGHTBULB_GAUSSIAN_KDE_DATA[attribute_name]
-        else:
-            gen_values = [attribute[0][attribute_name] for attribute in GENERATED_FLAT_DICT]
-            real_values = [attribute[0][attribute_name] for attribute in REAL_FLAT_DICT]
-
-            # KDEs give smooth non-parametric estimates; 1-liner to swap in any other model.
-            real_kde = gaussian_kde(real_values, bw_method='scott')
-            gen_kde = gaussian_kde(gen_values, bw_method='scott')
+    if not is_chunk_attribute:
+        gen_values = [attribute[0][attribute_name] for attribute in GENERATED_FLAT_DICT]
+        real_values = [attribute[0][attribute_name] for attribute in REAL_FLAT_DICT]
     else:
-        if attribute_name in LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL:
-            real_kde, gen_kde = LIGHTBULB_GAUSSIAN_KDE_DATA_PARTIAL[attribute_name]
+        if is_attribute_available_in_partial_attributes(attribute_name):
+            gen_values = [attribute[0][attribute_name] for attribute in GENERATED_PARTIAL_FLAT_DICT]
+            real_values = [attribute[0][attribute_name] for attribute in REAL_PARTIAL_FLAT_DICT]
         else:
-            if is_attribute_available_in_partial_attributes(attribute_name):
-                gen_values = [attribute[0][attribute_name] for attribute in GENERATED_PARTIAL_FLAT_DICT]
-                real_values = [attribute[0][attribute_name] for attribute in REAL_PARTIAL_FLAT_DICT]
+            raise ValueError(f"Attribute named {attribute_name} not available for partial analysis")
 
-                # KDEs give smooth non-parametric estimates; 1-liner to swap in any other model.
-                real_kde = gaussian_kde(real_values, bw_method='scott')
-                gen_kde  = gaussian_kde(gen_values,  bw_method='scott')
-            else:
-                raise ValueError(f"Attribute named {attribute_name} not available for partial analysis")
-
-    raw = _relative_density(attribute_value, real_kde, gen_kde)  # [-1,1]
+    raw = _relative_percentile_score(attribute_value,real_values,gen_values, category)
 
     if category == LightbulbScoreType.BIDIRECTIONAL:
         return float(np.clip(raw, -1, 1))
 
-    if category == LightbulbScoreType.HUMAN_WRITTEN:
-        human_score = -raw              # make human side negative
-        return float(np.clip(human_score, -1, 0))
-
     if category == LightbulbScoreType.LLM_GENERATED:
-        llm_score =  raw                # keep LLM side positive
-        return float(np.clip(llm_score,  0, 1))
+        return float(np.clip(raw, -1, 0))
+
+    if category == LightbulbScoreType.HUMAN_WRITTEN:
+        return float(np.clip(raw,  0, 1))
 
     raise ValueError(f"Unknown category: {category}")
 

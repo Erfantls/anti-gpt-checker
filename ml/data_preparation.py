@@ -22,6 +22,8 @@ def find_significant_features(data):
     """
     # Convert list of tuples into a DataFrame
     df = pd.DataFrame([item[0] for item in data])
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    df.fillna(0, inplace=True)
     labels = [item[1] for item in data]
 
     # Fill missing values if necessary

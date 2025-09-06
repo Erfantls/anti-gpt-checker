@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
-from api.analyser import load_reference_attributes, precompile_gaussian_kde
+from api.analyser import load_reference_attributes
 
 from api.analysis_fetcher import router as analysis_fetcher_router
 from api.db_calls import router as db_router
@@ -13,11 +13,6 @@ async def lifespan(app: FastAPI):
     print("Loading reference attributes...")
     load_reference_attributes()
     print("Reference attributes loaded successfully.")
-    print("=========================================================")
-
-    print("Precompile gaussian kde values...")
-    precompile_gaussian_kde()
-    print("Precompilation of gaussian kde values completed successfully.")
     print("=========================================================")
 
     yield

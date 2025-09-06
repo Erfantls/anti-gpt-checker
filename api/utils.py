@@ -102,7 +102,7 @@ def calculate_lightbulb_scores(attribute, attribute_names, is_chunk_attribute: b
             continue
         lightbulb_score_data.append(LightbulbScoreData(
             attribute_name=attribute_name,
-            type=LightbulbScoreType.BIDIRECTIONAL,
+            type=category,
             score=lightbulb_score_value,
             raw_score=attribute_value,
             max_value=API_LIGHTBULBS_SCORES_PARAMETERS[attribute_name].max_value,

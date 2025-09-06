@@ -398,28 +398,31 @@ async def _get_document_with_analyses_overview(document_hash: str, user_id: str)
             subanalyses=[]
         )
     else:
+        # We need to download the attribute again as the chunk analysis might have finished after our last download
+        attribute: AttributePLInDB = await dao_attribute.find_by_id(newest_analyses.attributes_id)
         chunk_level_subanalyses: list[ChunkLevelSubanalysis] = []
-        for chunk_attributes in attribute.partial_attributes:
-            identifier = chunk_attributes.index
-            lightbulb_features, attributes_names_left = await get_precompiled_lightbulb_scores(chunk_attributes.attribute,
-                                                                                               API_MOST_IMPORTANT_ATTRIBUTES,
-                                                                                               is_chunk_attribute=True,
-                                                                                               attribute_id=newest_analyses.attributes_id,
-                                                                                               identifier=identifier)
-            if len(attributes_names_left) > 0:
-                is_only_combination_features = True
-                for attribute_name in attributes_names_left:
-                    if 'combination_features' not in attribute_name:
-                        is_only_combination_features = False
+        if attribute.partial_attributes is not None:
+            for chunk_attributes in attribute.partial_attributes:
+                identifier = chunk_attributes.index
+                lightbulb_features, attributes_names_left = await get_precompiled_lightbulb_scores(chunk_attributes.attribute,
+                                                                                                   API_MOST_IMPORTANT_ATTRIBUTES,
+                                                                                                   is_chunk_attribute=True,
+                                                                                                   attribute_id=newest_analyses.attributes_id,
+                                                                                                   identifier=identifier)
+                if len(attributes_names_left) > 0:
+                    is_only_combination_features = True
+                    for attribute_name in attributes_names_left:
+                        if 'combination_features' not in attribute_name:
+                            is_only_combination_features = False
 
-                if not is_only_combination_features:
-                    lightbulb_features_left = calculate_lightbulb_scores(attribute, attributes_names_left)
-                    lightbulb_features += lightbulb_features_left
+                    if not is_only_combination_features:
+                        lightbulb_features_left = calculate_lightbulb_scores(attribute, attributes_names_left)
+                        lightbulb_features += lightbulb_features_left
 
-            chunk_level_subanalyses.append(ChunkLevelSubanalysis(
-                identifier=identifier,
-                lightbulb_features=lightbulb_features
-            ))
+                chunk_level_subanalyses.append(ChunkLevelSubanalysis(
+                    identifier=identifier,
+                    lightbulb_features=lightbulb_features
+                ))
         chunk_level_analysis = ChunkLevelAnalysis(
             status=AnalysisStatus.FINISHED,
             subanalyses=chunk_level_subanalyses
