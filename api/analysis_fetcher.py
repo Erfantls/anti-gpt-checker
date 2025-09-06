@@ -242,7 +242,7 @@ async def _get_graph_summary(
 
     dto = compute_histogram_data(
         attribute_name=attribute_name,
-        num_bin=num_bins,
+        num_bin=num_bins-1,
         min_value=min_value,
         max_value=max_value,
         additional_value=None, #attribute_dict[attribute_name],
