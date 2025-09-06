@@ -12,3 +12,6 @@
 - burstiness2
 - stylometrix_metrics.grammatical_forms.G_NUM
 - stylometrix_metrics.inflection.IN_N_6LOC
+- stylometrix_metrics.lexical.L_SYL_G4
+- stylometrix_metrics.inflection.IN_N_NMP
+- standard_deviation_sentence_char_length
