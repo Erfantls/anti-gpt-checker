@@ -184,9 +184,11 @@ def _relative_percentile_score(value: float,real_values: np.ndarray,gen_values: 
     gen_median = np.median(gen_values)
 
     if category == LightbulbScoreType.HUMAN_WRITTEN:
-        return boost_with_cosine(real_percentile)
+        real_score = ((-abs(real_percentile - 0.5))*2)+1
+        return boost_with_cosine(real_score)
     elif category == LightbulbScoreType.LLM_GENERATED:
-        return boost_with_cosine(gen_percentile-1)
+        gen_score = (abs(gen_percentile - 0.5)-0.5)*2
+        return boost_with_cosine(gen_score)
     else:
         real_score = real_percentile - 0.5
         gen_score = gen_percentile - 0.5
