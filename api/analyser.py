@@ -92,7 +92,7 @@ def compute_histogram_data(attribute_name: str, num_bin=21,
     data_real = [d if d < max_value else max_value for d in data_real]
 
     w = (max_value - min_value) / num_bin
-    bins = np.linspace(min_value, max_value, num_bin + 1).tolist()
+    bins = np.linspace(min_value, max_value, num_bin).tolist()
 
     if normalize:
         weights_gen = np.ones_like(data_gen) / len(data_gen)
