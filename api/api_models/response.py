@@ -78,6 +78,10 @@ class DocumentsOfUserResponse(BaseModel):
     message: str = "Documents of the user"
     documents: List[DocumentInDB]  # List of documents
 
+class DocumentDeletedResponse(BaseModel):
+    type: str = "document_deleted_response"
+    message: str = "Document deleted"
+
 class AnalysisWithLightbulbs(BaseModel):
     analysis: AnalysisInDB  # Analysis object
     attribute_in_db: AttributeInDB

@@ -8,7 +8,8 @@ from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DEBUG, API_MON
 from api.api_models.document import DocumentInDB
 from api.api_models.analysis import AnalysisInDB, AnalysisStatus, AnalysisData, AnalysisType
 from api.api_models.response import DocumentsOfUserResponse, \
-    AnalysesOfDocumentsResponse, DocumentsOfUserWithAnalysisResponse, AnalysisWithLightbulbs, DocumentWithAnalysis
+    AnalysesOfDocumentsResponse, DocumentsOfUserWithAnalysisResponse, AnalysisWithLightbulbs, DocumentWithAnalysis, \
+    DocumentDeletedResponse
 
 from api.security import verify_token
 
@@ -33,6 +34,23 @@ async def get_documents_of_user(user_id: str = Depends(verify_token) if not API_
     documents: list[DocumentInDB] = await dao_document.find_many_by_query({'owner_id': user_id})
 
     return DocumentsOfUserResponse(documents=documents)
+
+@router.delete("/delete-document",
+            response_model=DocumentsOfUserResponse,
+            status_code=status.HTTP_200_OK)
+async def delete_document(document_hash: str, user_id: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
+    document: Optional[DocumentInDB] = await dao_document.find_one_by_query({'owner_id': user_id, document_hash: document_hash})
+    if not document:
+        raise HTTPException(status_code=404)
+
+    connected_analyses: list[AnalysisInDB] = await dao_analysis.find_many_by_query({'document_hash': document_hash})
+    if len(connected_analyses) > 0:
+        await dao_analysis.delete_many({'document_hash': document.document_hash})
+
+    await dao_document.delete_one({'owner_id': user_id, 'document_hash': document_hash})
+
+    return DocumentDeletedResponse()
+
 
 @router.get("/get-analysed-documents-of-user",
             response_model=DocumentsOfUserWithAnalysisResponse,
