@@ -245,8 +245,12 @@ def _blocking_analysis(analysis_id: str, document_hash, user_id: str, type_of_an
 
             attribute_after_update: AttributePLInDB = dao_attribute.find_by_id(document_level_attributes_id)
             lightbulb_combination_features_scores = calculate_lightbulb_scores(attribute_after_update, [attribute for attribute in API_MOST_IMPORTANT_ATTRIBUTES if 'combination_features' in attribute])
+            set_query_dict = {}
+            for combination_feature_score in lightbulb_combination_features_scores:
+                set_query_dict[f"lightbulb_scores_dict.{combination_feature_score.attribute_name}"] = combination_feature_score.dict()
+
             dao_lightbulb.update_one({'attribute_id': document_level_attributes_id, 'is_chunk_attribute': False},
-                                     {'$set': {f"lightbulb_scores_dict.{combination_feature_score.attribute_name}": combination_feature_score.dict() for combination_feature_score in lightbulb_combination_features_scores}}
+                                     {'$set': set_query_dict}
                                      )
 
             for chunk_attributes in partial_attributes:
