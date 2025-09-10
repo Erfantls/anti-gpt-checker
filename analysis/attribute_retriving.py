@@ -903,10 +903,10 @@ def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool 
     else:
         raise ValueError(f"Language {lang_code} is not supported")
 
-    if skip_stylometrix_calc or skip_partial_attributes:
+    if skip_stylometrix_calc:
         return temp_attribute
     else:
-        if len(partial_attributes) == 0:
+        if skip_partial_attributes or len(partial_attributes) == 0:
             combination_features = CombinationFeatures.init_from_stylometrix_and_partial_attributes(stylometrix_metrics,
                                                                                                     [temp_attribute.dict()])
         else:
