@@ -244,14 +244,13 @@ def _blocking_analysis(analysis_id: str, document_hash, user_id: str, type_of_an
                                                      'task_id': None, 'queue_position': None}})
 
             attribute_after_update: AttributePLInDB = dao_attribute.find_by_id(document_level_attributes_id)
-            lightbulb_combination_features_scores = calculate_lightbulb_scores(attribute_after_update, [attribute for attribute in API_MOST_IMPORTANT_ATTRIBUTES if 'combination_features' in attribute])
-            set_query_dict = {}
-            for combination_feature_score in lightbulb_combination_features_scores:
-                set_query_dict[f"lightbulb_scores_dict.{combination_feature_score.attribute_name}"] = combination_feature_score.dict()
+            all_lightbulb_document_features_scores = calculate_lightbulb_scores(attribute_after_update, API_MOST_IMPORTANT_ATTRIBUTES)
+            lightbulb_scores_model = LightbulbScores(attribute_id=document_level_attributes_id,
+                                                     lightbulb_scores_dict={lightbulb.attribute_name: lightbulb for
+                                                                            lightbulb in all_lightbulb_document_features_scores})
 
-            dao_lightbulb.update_one({'attribute_id': document_level_attributes_id, 'is_chunk_attribute': False},
-                                     {'$set': set_query_dict}
-                                     )
+            dao_lightbulb.delete_one({'attribute_id': document_level_attributes_id, 'is_chunk_attribute': False})
+            dao_lightbulb.insert_one(lightbulb_scores_model)
 
             for chunk_attributes in partial_attributes:
                 lightbulb_scores_partial = calculate_lightbulb_scores(chunk_attributes.attribute, API_MOST_IMPORTANT_ATTRIBUTES, is_chunk_attribute=True)
