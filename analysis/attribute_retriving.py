@@ -334,6 +334,7 @@ def calculate_perplexity(text: str, language_code: str, per_token: Optional[str]
         if end_loc == seq_len:
             break
 
+    # return None if the loop never run - it did not have any text
     if prev_end_loc == 0:
         return None
 
@@ -758,6 +759,9 @@ def perform_parallel_partial_analysis(text_chunks: List[str], lang_code: str,
 def perform_full_analysis(text: str, lang_code: str, skip_perplexity_calc: bool = False,
                           skip_stylometrix_calc: bool = False, skip_partial_attributes: bool = False) -> Union[
     AttributeNoDBParametersPL, AttributeNoDBParametersEN]:
+    if len(text.strip()) < 20: # the document is too short, there is no point in analyzing it
+        raise ValueError("Text too short to analyse")
+
     if skip_perplexity_calc:
         perplexity_base, perplexity, perplexity_base_normalized = None, None, None
     else:
