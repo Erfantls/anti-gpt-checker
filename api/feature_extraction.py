@@ -205,6 +205,13 @@ def _blocking_analysis(analysis_id: str, document_hash, user_id: str, type_of_an
     try:
         text_to_analyse = preprocess_text(document.plaintext_content)
         dao_document.update_one({'document_hash': document_hash}, {'$set': {"plaintext_content_preprocessed": text_to_analyse}})
+
+        if len(text_to_analyse.strip()) < 20: # the document is too short, there is no point in analyzing it
+            dao_analysis.update_one({'analysis_id': analysis_id},
+                                    {'$set': {'status': AnalysisStatus.DOCUMENT_TOO_SHORT, "attributes_id": None,
+                                              'task_id': None, 'queue_position': None}})
+            return
+
         if type_of_analysis == AnalysisType.DOCUMENT_LEVEL:
             analysis_result = perform_full_analysis(text_to_analyse, 'pl', skip_partial_attributes=True)
             attribute_to_insert = AttributePL(

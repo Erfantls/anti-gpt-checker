@@ -18,12 +18,14 @@ class AnalysisStatus(str, Enum):
     QUEUED = "queued"
     FAILED = "failed"
     NOT_REQUESTED = "not_requested"
+    DOCUMENT_TOO_SHORT = "document_too_short"
 
     _order = [ # ordered from least to most advanced
         NOT_REQUESTED,
         FAILED,
         QUEUED,
         RUNNING,
+        DOCUMENT_TOO_SHORT,
         FINISHED
     ]
 
