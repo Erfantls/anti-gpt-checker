@@ -34,6 +34,12 @@ async def get_documents_of_user(user_id: str = Depends(verify_token) if not API_
 
     return DocumentsOfUserResponse(documents=documents)
 
+@router.delete("/delete-document",
+            response_model=DocumentsOfUserResponse,
+            status_code=status.HTTP_200_OK)
+async def get_documents_of_user(document_hash: str, user_id: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID):
+    pass
+
 @router.get("/get-analysed-documents-of-user",
             response_model=DocumentsOfUserWithAnalysisResponse,
             status_code=status.HTTP_200_OK)
