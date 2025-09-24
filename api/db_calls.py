@@ -9,7 +9,7 @@ from api.api_models.document import DocumentInDB, DocumentStatus
 from api.api_models.analysis import AnalysisInDB, AnalysisStatus, AnalysisData, AnalysisType
 from api.api_models.response import DocumentsOfUserResponse, \
     AnalysesOfDocumentsResponse, DocumentsOfUserWithAnalysisResponse, AnalysisWithLightbulbs, DocumentWithAnalysis, \
-    DocumentDeletedResponse
+    DocumentDeletedResponse, UpdatedDocumentsOfUserWithAnalysisResponse
 
 from api.security import verify_token
 
@@ -165,56 +165,59 @@ async def _get_analyses_of_document_by_hash(document_hash: str):
 
     return AnalysesOfDocumentsResponse(analyses=analyses_data)
 
+from datetime import datetime
+
+from datetime import datetime
+
 @router.get(
-    "/get-updated-analyses-of-user-by-timestamp",
-    response_model=dict,
+    "/get-updated-analysed-documents-of-user",
+    response_model=UpdatedDocumentsOfUserWithAnalysisResponse,
     status_code=status.HTTP_200_OK
 )
-async def get_updated_analyses_of_user_by_timestamp(
+async def get_updated_analysed_documents_of_user(
     since: datetime,
     user_id: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID
 ):
     documents: list[DocumentInDB] = await dao_document.find_many_by_query({
-        "owner_id": user_id,
-        "document_status": {"$ne": DocumentStatus.FINISHED},
-        "updated_at": {"$gt": since}
+        'owner_id': user_id,
+        'updated_at': {'$gt': since}
     })
-    result = []
+
+    documents_with_analyses: list[DocumentWithAnalysis] = []
+
     for document in documents:
+        analyses_with_lightbulbs: list[AnalysisWithLightbulbs] = []
         analyses: list[AnalysisInDB] = await dao_analysis.find_many_by_query({
-            "document_hash": document.document_hash
+            'document_hash': document.document_hash
         })
 
-        analyses_data = []
         for analysis in analyses:
-            if analysis.type == AnalysisType.CHUNK_LEVEL:
-                continue
-
-            if analysis.status != AnalysisStatus.FINISHED:
-                analyses_data.append(
-                    AnalysisData(analysis_id=analysis.analysis_id, document_hash=analysis.document_hash, full_features=None)
-                )
-                continue
-
             attribute: AttributePLInDB = await dao_attribute.find_by_id(analysis.attributes_id)
             if not attribute:
-                analyses_data.append(
-                    AnalysisData(analysis_id=analysis.analysis_id, document_hash=analysis.document_hash, full_features=None)
-                )
                 continue
 
-            analyses_data.append(AnalysisData.from_analysis_and_attribute(analysis, attribute))
+            lightbulb_scores = calculate_lightbulb_scores(attribute, API_MOST_IMPORTANT_ATTRIBUTES)
 
-        result.append({
-            "document": document,
-            "analyses": analyses_data
-        })
+            analyses_with_lightbulbs.append(AnalysisWithLightbulbs(
+                analysis=analysis,
+                attribute_in_db=attribute,
+                lightbulb_scores=lightbulb_scores
+            ))
+
+        documents_with_analyses.append(DocumentWithAnalysis(
+            document=document,
+            analyses_with_lightbulbs=analyses_with_lightbulbs
+        ))
+
     if documents:
         new_timestamp = max(doc.updated_at for doc in documents)
     else:
         new_timestamp = datetime.utcnow()
 
-    return {
-        "documents_with_analyses": result,
-        "new_timestamp": new_timestamp.isoformat()
-    }
+    return UpdatedDocumentsOfUserWithAnalysisResponse(
+        documents_with_analyses=documents_with_analyses,
+        new_timestamp=new_timestamp
+    )
+
+
+
