@@ -12,3 +12,7 @@
 - standard_deviation_sentence_char_length
 - combination_features.partial_attribute_statistics.standard_deviation_sentence_char_length.average
 - punctuation_density
+- stylometrix_metrics.inflection.IN_N_4ACC
+- stylometrix_metrics.inflection.IN_N_2GEN
+- average_word_char_length
+- stylometrix_metrics.lexical.L_CONT_A
