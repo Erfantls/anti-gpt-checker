@@ -1,15 +1,15 @@
 from typing import Optional
-
+from datetime import datetime
 from fastapi import Depends, APIRouter, status, HTTPException
 
 from api.server_config import API_ATTRIBUTES_COLLECTION_NAME, API_DEBUG, API_MONGODB_DB_NAME, \
     API_MOST_IMPORTANT_ATTRIBUTES, API_DEBUG_USER_ID
 
-from api.api_models.document import DocumentInDB
+from api.api_models.document import DocumentInDB, DocumentStatus
 from api.api_models.analysis import AnalysisInDB, AnalysisStatus, AnalysisData, AnalysisType
 from api.api_models.response import DocumentsOfUserResponse, \
     AnalysesOfDocumentsResponse, DocumentsOfUserWithAnalysisResponse, AnalysisWithLightbulbs, DocumentWithAnalysis, \
-    DocumentDeletedResponse
+    DocumentDeletedResponse, UpdatedDocumentsOfUserWithAnalysisResponse
 
 from api.security import verify_token
 
@@ -164,3 +164,60 @@ async def _get_analyses_of_document_by_hash(document_hash: str):
         analyses_data.append(AnalysisData.from_analysis_and_attribute(analysis, attribute))
 
     return AnalysesOfDocumentsResponse(analyses=analyses_data)
+
+from datetime import datetime
+
+from datetime import datetime
+
+@router.get(
+    "/get-updated-analysed-documents-of-user",
+    response_model=UpdatedDocumentsOfUserWithAnalysisResponse,
+    status_code=status.HTTP_200_OK
+)
+async def get_updated_analysed_documents_of_user(
+    since: datetime,
+    user_id: str = Depends(verify_token) if not API_DEBUG else API_DEBUG_USER_ID
+):
+    documents: list[DocumentInDB] = await dao_document.find_many_by_query({
+        'owner_id': user_id,
+        'updated_at': {'$gt': since}
+    })
+
+    documents_with_analyses: list[DocumentWithAnalysis] = []
+
+    for document in documents:
+        analyses_with_lightbulbs: list[AnalysisWithLightbulbs] = []
+        analyses: list[AnalysisInDB] = await dao_analysis.find_many_by_query({
+            'document_hash': document.document_hash
+        })
+
+        for analysis in analyses:
+            attribute: AttributePLInDB = await dao_attribute.find_by_id(analysis.attributes_id)
+            if not attribute:
+                continue
+
+            lightbulb_scores = calculate_lightbulb_scores(attribute, API_MOST_IMPORTANT_ATTRIBUTES)
+
+            analyses_with_lightbulbs.append(AnalysisWithLightbulbs(
+                analysis=analysis,
+                attribute_in_db=attribute,
+                lightbulb_scores=lightbulb_scores
+            ))
+
+        documents_with_analyses.append(DocumentWithAnalysis(
+            document=document,
+            analyses_with_lightbulbs=analyses_with_lightbulbs
+        ))
+
+    if documents:
+        new_timestamp = max(doc.updated_at for doc in documents)
+    else:
+        new_timestamp = datetime.utcnow()
+
+    return UpdatedDocumentsOfUserWithAnalysisResponse(
+        documents_with_analyses=documents_with_analyses,
+        new_timestamp=new_timestamp
+    )
+
+
+

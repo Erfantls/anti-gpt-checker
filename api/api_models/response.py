@@ -3,7 +3,7 @@ import json
 from typing import Union, List, Literal, Optional
 
 from pydantic import BaseModel
-
+from datetime import datetime
 from api.api_models.analysis import AnalysisData, AnalysisStatus, AnalysisInDB
 from api.api_models.document import DocumentInDB, DocumentStatus
 from api.api_models.lightbulb_score import LightbulbScoreData, LightbulbScoreType
@@ -176,3 +176,7 @@ class DocumentWithAnalysesAdditionalDetails(BaseModel):
     document_hash: str
     document_level_analysis_details: DocumentLevelAnalysisAdditionalDetails
     chunk_level_analysis_details: ChunkLevelAnalysisAdditionalDetails
+
+class UpdatedDocumentsOfUserWithAnalysisResponse(BaseModel):
+    documents_with_analyses: list[DocumentWithAnalysis]
+    new_timestamp: datetime

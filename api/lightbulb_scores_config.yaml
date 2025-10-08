@@ -4,7 +4,7 @@
   min_value: 0.0
   feature_rank: 1
 - attribute_name: combination_features.common_long_word_ratio
-  type: bidirectional
+  type: human_written
   max_value: 19.666666666666664
   min_value: 0.10638297872340426
   feature_rank: 2
@@ -81,7 +81,7 @@
   min_value: 0.0
   feature_rank: 16
 - attribute_name: combination_features.partial_attribute_statistics.standard_deviation_sentence_char_length.average
-  type: bidirectional
+  type: human_written
   max_value: 953.6538850925551
   min_value: 0.0
   feature_rank: 17
@@ -146,7 +146,7 @@
   min_value: 1.0
   feature_rank: 29
 - attribute_name: standard_deviation_sentence_char_length
-  type: bidirectional
+  type: human_written
   max_value: 749.837482392018
   min_value: 0.0
   feature_rank: 30
@@ -316,8 +316,7 @@
   min_value: 0.0
   feature_rank: 63
 - attribute_name: perplexity_base_normalized
-  type: llm_generated
-  type_direction: -1
+  type: human_written
   max_value: 4.20897102355957
   min_value: 0.0022715784545637606
   feature_rank: 64
@@ -574,7 +573,7 @@
   min_value: 0.16666666666666666
   feature_rank: 114
 - attribute_name: burstiness2
-  type: bidirectional
+  type: human_written
   max_value: 0.4447844279922236
   min_value: -1.0
   feature_rank: 115
@@ -824,7 +823,7 @@
   min_value: 0.0
   feature_rank: 164
 - attribute_name: stylometrix_metrics.grammatical_forms.G_PART
-  type: bidirectional
+  type: human_written
   max_value: 0.06615776081424936
   min_value: 0.0
   feature_rank: 165
