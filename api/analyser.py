@@ -1,6 +1,7 @@
 from typing import List
 
 import numpy as np
+
 from scipy.stats import gaussian_kde, percentileofscore
 from matplotlib import pyplot as plt
 
@@ -164,7 +165,7 @@ def _relative_density(value: float,
 
     return (p_real - p_gen) / (p_real + p_gen)   # ∈ (-1,1)
 
-def boost_with_cosine(score, boost=1.7, power=0.7):
+def boost_with_cosine(score, boost=1.0, power=0.7):
     """
     Multiply by a smooth cosine bump centered at 0.
     - boost sets multiplier at 0.
@@ -176,27 +177,157 @@ def boost_with_cosine(score, boost=1.7, power=0.7):
     m = 1.0 + (boost - 1.0) * shaped
     return float(np.clip(s * m, -1.0, 1.0))
 
-def _relative_percentile_score(value: float,real_values: np.ndarray,gen_values: np.ndarray, category: LightbulbScoreType):
+SQRT_2PI = np.sqrt(2.0 * np.pi)
 
-    real_percentile = percentileofscore(real_values, value, kind="weak")/100.0
-    real_median = np.median(real_values)
-    gen_percentile = percentileofscore(gen_values, value, kind="weak")/100.0
-    gen_median = np.median(gen_values)
+def _silverman_bandwidth(values: np.ndarray) -> float:
+    v = np.asarray(values, dtype=float)
+    v = v[np.isfinite(v)]
+    n = max(len(v), 1)
+    if n <= 1:
+        return 1.0
+    std = np.std(v)
+    iqr = np.subtract(*np.percentile(v, [75, 25]))
+    sigma = min(std, iqr / 1.349) if (std > 0 and iqr > 0) else max(std, 1e-6)
+    return max(0.9 * sigma * n ** (-1.0 / 5.0), 1e-6)
+
+def _kde_pdf_np(values: np.ndarray, x: float, h: float | None = None, eps: float = 1e-12) -> float:
+    v = np.asarray(values, dtype=float)
+    v = v[np.isfinite(v)]
+    n = len(v)
+    if n == 0:
+        return 0.0
+    if not h or not np.isfinite(h) or h <= 0:
+        h = _silverman_bandwidth(v)
+    z = (x - v) / h
+    pdf = np.sum(np.exp(-0.5 * z * z)) / (n * h * SQRT_2PI)
+    return float(max(pdf, eps))
+
+def _mad(x: np.ndarray) -> float:
+    x = np.asarray(x, dtype=float)
+    x = x[np.isfinite(x)]
+    if x.size == 0:
+        return 1.0
+    med = np.median(x)
+    mad = np.median(np.abs(x - med))
+    return float(max(1.4826 * mad, 1e-6))
+
+def _sigmoid(u: float) -> float:
+    if u >= 0:
+        e = np.exp(-u)
+        return 1.0 / (1.0 + e)
+    else:
+        e = np.exp(u)
+        return e / (1.0 + e)
+
+def relative_likelihood_score(
+    value: float,
+    real_values: np.ndarray,
+    gen_values: np.ndarray,
+    category,                        # LightbulbScoreType
+    *,
+    temperature: float = 1.0,
+    tail_floor: float = 1e-9,
+    share_bandwidth: bool = True,
+    # main density gate
+    density_knee_frac: float = 0.35,
+    density_sharpness: float = 3.0,
+    density_gamma: float = 0.7,
+    # tail relief, gentler gate used when purity is high
+    tail_knee_frac: float = 0.05,
+    tail_sharpness: float = 2.0,
+    tail_gamma: float = 0.6,
+    # distance penalty
+    distance_tau: float = 4.0,
+    distance_beta: float = 1.5,
+    # purity boost in dense clean regions
+    purity_boost: float = 0.75,
+    purity_power: float = 1.0,
+    # exclusive bonus for sparse but one sided tails
+    exclusive_bonus: float = 0.25,       # max added magnitude in clean tail
+    exclusive_gate_frac: float = 0.15,   # requires dominant density above this fraction of peak
+    use_cosine_boost: bool = False
+) -> float:
+    rv = np.asarray(real_values, dtype=float)
+    gv = np.asarray(gen_values, dtype=float)
+    rv = rv[np.isfinite(rv)]
+    gv = gv[np.isfinite(gv)]
+
+    if rv.size == 0 and gv.size == 0:
+        return 0.0
+
+    if share_bandwidth and rv.size and gv.size:
+        h_shared = np.median([_silverman_bandwidth(rv), _silverman_bandwidth(gv)])
+        hr = hg = max(h_shared, 1e-6)
+    else:
+        hr = _silverman_bandwidth(rv) if rv.size else 1.0
+        hg = _silverman_bandwidth(gv) if gv.size else 1.0
+
+    f_r = (_kde_pdf_np(rv, value, hr) if rv.size else 0.0) + tail_floor
+    f_g = (_kde_pdf_np(gv, value, hg) if gv.size else 0.0) + tail_floor
+
+    pi_r = float(len(rv)) if rv.size else 1.0
+    pi_g = float(len(gv)) if gv.size else 1.0
+    s = max(pi_r + pi_g, 1e-6)
+    pi_r /= s
+    pi_g = 1.0 - pi_r
+
+    llr = np.log(f_r) - np.log(f_g)
+    log_prior_odds = np.log(max(pi_r, 1e-12)) - np.log(max(pi_g, 1e-12))
+    z = (llr + log_prior_odds) / max(temperature, 1e-6)
+    p_h = _sigmoid(z)
+    bi_score = float(2.0 * p_h - 1.0)  # sign says side
+
+    mix_density = pi_r * f_r + pi_g * f_g
+    med_r = float(np.median(rv)) if rv.size else value
+    med_g = float(np.median(gv)) if gv.size else value
+    f_ref_r = (_kde_pdf_np(rv, med_r, hr) if rv.size else 0.0) + tail_floor
+    f_ref_g = (_kde_pdf_np(gv, med_g, hg) if gv.size else 0.0) + tail_floor
+    f_ref_peak = max(f_ref_r, f_ref_g)
+
+    # purity in [0,1]
+    purity = abs(f_r - f_g) / (f_r + f_g)
+
+    # main density gate based on mixture density
+    knee_main = density_knee_frac * f_ref_peak
+    gate_main = _sigmoid(density_sharpness * (np.log(mix_density) - np.log(knee_main + 1e-12)))
+    density_weight_main = float(gate_main ** density_gamma)
+
+    # tail density gate based on dominant density only
+    dom = max(f_r, f_g)
+    knee_tail = tail_knee_frac * f_ref_peak
+    gate_tail = _sigmoid(tail_sharpness * (np.log(dom) - np.log(knee_tail + 1e-12)))
+    density_weight_tail = float(gate_tail ** tail_gamma)
+
+    # blend by purity, so in clean tails the gentler gate dominates
+    density_weight = float((1.0 - purity) * density_weight_main + purity * density_weight_tail)
+
+    # robust distance penalty to the nearer class
+    z_r = abs(value - med_r) / _mad(rv) if rv.size else np.inf
+    z_g = abs(value - med_g) / _mad(gv) if gv.size else np.inf
+    z_min = min(z_r, z_g)
+    distance_weight = float(np.exp(- (z_min / max(distance_tau, 1e-6)) ** distance_beta))
+
+    # purity amplifier in dense zones, as before
+    amplifier = 1.0 + purity_boost * (purity ** purity_power) * gate_main
+    supported = bi_score * density_weight * distance_weight * amplifier
+
+    # exclusive tail bonus, signed, small, only if purity high and dominant density is non trivial
+    dom_norm = float(np.clip(dom / max(f_ref_peak, 1e-12), 0.0, 1.0))
+    bonus_gate = 1.0 if (purity > 0.85 and dom_norm >= exclusive_gate_frac) else 0.0
+    signed_bonus = np.sign(bi_score) * exclusive_bonus * dom_norm * bonus_gate
+
+    bi_score = float(np.clip(supported + signed_bonus, -1.0, 1.0))
 
     if category == LightbulbScoreType.HUMAN_WRITTEN:
-        real_score = ((-abs(real_percentile - 0.5))*2)+1
-        return boost_with_cosine(real_score)
+        out = float(np.clip(bi_score, 0.0, 1.0))
     elif category == LightbulbScoreType.LLM_GENERATED:
-        gen_score = (abs(gen_percentile - 0.5)-0.5)*2
-        return boost_with_cosine(gen_score)
+        out = float(np.clip(bi_score, -1.0, 0.0))
     else:
-        real_score = real_percentile - 0.5
-        gen_score = gen_percentile - 0.5
-        result = real_score + gen_score
-        if real_median < gen_median:
-            result = -result
+        out = float(np.clip(bi_score, -1.0, 1.0))
 
-        return boost_with_cosine(result)
+    if use_cosine_boost:
+        return boost_with_cosine(out)
+    return out
 
 
 def calculate_lightbulb_score(attribute_value,
@@ -220,7 +351,10 @@ def calculate_lightbulb_score(attribute_value,
         else:
             raise ValueError(f"Attribute named {attribute_name} not available for partial analysis")
 
-    raw = _relative_percentile_score(attribute_value,real_values,gen_values, category)
+    gen_values = np.array(gen_values)
+    real_values = np.array(real_values)
+
+    raw = relative_likelihood_score(attribute_value, real_values, gen_values, category)
 
     if category == LightbulbScoreType.BIDIRECTIONAL:
         return float(np.clip(raw, -1, 1))
