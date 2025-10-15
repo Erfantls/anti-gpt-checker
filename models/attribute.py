@@ -175,6 +175,7 @@ class AttributeBase(AttributeNoDBParameters):
     language: Optional[str]  # V
     is_generated: Optional[bool]  # V
     is_personal: Optional[bool]  # V
+    llm_model_name: Optional[str]
 
 
 class AttributePL(AttributeBase):
@@ -186,11 +187,11 @@ class AttributeEN(AttributeBase):
 
 
 class AttributePLInDB(MongoDBModel, AttributePL):
-    llm_model_name: Optional[str]
+    pass
 
 
 class AttributeENInDB(MongoDBModel, AttributeEN):
-    llm_model_name: Optional[str]
+    pass
 
 
 AttributeInDB = Union[AttributePLInDB, AttributeENInDB]
