@@ -186,11 +186,11 @@ class AttributeEN(AttributeBase):
 
 
 class AttributePLInDB(MongoDBModel, AttributePL):
-    pass
+    llm_model_name: Optional[str]
 
 
 class AttributeENInDB(MongoDBModel, AttributeEN):
-    pass
+    llm_model_name: Optional[str]
 
 
 AttributeInDB = Union[AttributePLInDB, AttributeENInDB]
