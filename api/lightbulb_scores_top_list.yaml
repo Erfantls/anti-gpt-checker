@@ -1,8 +1,6 @@
 - combination_features.common_long_word_ratio
 - combination_features.common_rare_word_ratio
 - stylometrix_metrics.grammatical_forms.G_ADP
-- stylometrix_metrics.inflection.IN_N_NMP
-- stylometrix_metrics.syntactic.SY_S_NOM
 - combination_features.partial_attribute_statistics.perplexity_base.average
 - perplexity_base_normalized
 - burstiness2
